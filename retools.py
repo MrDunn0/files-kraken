@@ -104,7 +104,7 @@ class SchemeMatcher(Multimatcher):
         self.matching_scheme = matching_scheme
 
     # I need to rewrite MultimatchExecutor and this to reuse same logic...
-    def match_scheme(self, text):
+    def match_scheme(self, text: str) -> Dict[str, str]:
         result = dict()
         for key, value in self.matching_scheme.items():
             match = None
@@ -125,7 +125,8 @@ class SchemeMatcher(Multimatcher):
                                     case str():
                                         match = ReExecutor.fullmatch(sub_pattern, text)
                                 if match:
-                                    result[key] = match
+                                    result[key] = match\
+                                    # Now there is no need to have two matches of text for the same field
                                     break
                 case _:
                     pattern = value
@@ -134,7 +135,7 @@ class SchemeMatcher(Multimatcher):
                 result[key] = match
         return result
 
-    def match(self, text):
+    def match(self, text: str):
         return self.match_scheme(text)
 
 
@@ -177,7 +178,13 @@ if __name__ == '__main__':
 
     # sm = SchemeMatcher(required_fields)
     # print(sm.match('other_153.sample_123456.fastq.gz'))
-    optional_fields = {'fastqs': re.compile('^\\w+\\.sample_NG067\\.lane_\\d+\\.R[1-2].fastq.gz'), 'bams': re.compile('^\\w+\\.sample_NG067\\.(dedup|recal|realigned)\\.bam'), 'vcf': re.compile('^\\w+\\.SNG067\\.vcf'), 'csv': re.compile('^\\w+\\.sample_SNG067\\.csv'), 'xlsx': re.compile('^\\w+\\.sample_SNG067\\.xlsx'), 'metrics': re.compile('^\\w+\\.sample_NG067\\.HS\\.metrics\\.tsv')}
+    optional_fields = {
+        'fastqs': re.compile('^\\w+\\.sample_NG067\\.lane_\\d+\\.R[1-2].fastq.gz'),
+        'bams': re.compile('^\\w+\\.sample_NG067\\.(dedup|recal|realigned)\\.bam'),
+        'vcf': re.compile('^\\w+\\.SNG067\\.vcf'),
+        'csv': re.compile('^\\w+\\.sample_SNG067\\.csv'),
+        'xlsx': re.compile('^\\w+\\.sample_SNG067\\.xlsx'),
+        'metrics': re.compile('^\\w+\\.sample_NG067\\.HS\\.metrics\\.tsv')}
     sm = SchemeMatcher(optional_fields)
     print(sm.match('ces_154.sample_NG067.dedup.bam'))
     print(ReExecutor.fullmatch(r'(?:other|ces|wes|wgs|)_\d+\.(AF|GF|S\d[0-1]?)\.vcf$', 'ces_3000.GF.vcf'))

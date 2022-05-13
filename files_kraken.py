@@ -1,21 +1,26 @@
 import pathlib
 
+from tinydb import Storage
+
 # FilesKraken modules
 from krakens_nest import Kraken
 from retools import ReSorter, GroupSearcher, BoolOutputMultimatcher
 from collector import SingleRootCollector
 from monitoring import MonitorManager, SingleIterationWatcher, ChangesFactory
 from data_organizer import BlueprintBuilder, BlueprintsDBUpdater
-from database import DatabaseManager, JsonDatabse
+from database import DatabaseManager, JsonDatabse, serialization
 
 
 if __name__ == '__main__':
     TEST_PATH_1 = '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test'
     TEST_PATH_2 = '/media/EXOMEDATA/exomes/'
+    TEST_PATH_3 = '/mnt/c/Users/misha/Desktop/materials/Programming/files-kraken/test'
     SCRIPT_DIR = pathlib.Path(__file__).parent.absolute()
     BACKUPS_DIR = SCRIPT_DIR / 'backups'
     CW_BACKUP_FILE = BACKUPS_DIR / 'cw_backups.json'
-    DATABASE = JsonDatabse('/home/ushakov/repo/cerbalab/SamplesInfoCollector/backups/db.json')
+    
+    DATABASE = JsonDatabse('/mnt/c/Users/misha/Desktop/materials/Programming/files-kraken/backups/db.json',
+                            storage=serialization)
 
     kraken = Kraken()
     monitor_manager = MonitorManager(BACKUPS_DIR, kraken)
@@ -24,7 +29,7 @@ if __name__ == '__main__':
     bb = BlueprintBuilder(kraken)
 
     upper_src = SingleRootCollector(
-        TEST_PATH_1,
+        TEST_PATH_3,
         matcher = BoolOutputMultimatcher(
             [
                 (r'^ces_\d+', 0),

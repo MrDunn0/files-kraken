@@ -1,0 +1,6 @@
+Collector_dev.py
+my_test.py
+test/*
+backups/*
+__pycache__
+.python-version
