@@ -233,7 +233,7 @@ class MonitorManager:
 
     def report_changes(self, changes):
         if self.kraken:
-            self.kraken.move_tentacle(FileChangesInfo(changes))
+            self.kraken.release(FileChangesInfo(changes))
 
     def start(self):
         while not self._exit:

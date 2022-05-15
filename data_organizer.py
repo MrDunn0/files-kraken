@@ -2,19 +2,20 @@ from ctypes import Structure
 import pathlib
 from dataclasses import dataclass, asdict, fields
 from collections import namedtuple
-from typing import List, Dict, NamedTuple, Any
-from copy import copy
+from re import M
+from typing import List, Dict, NamedTuple, Any, Union
 from webbrowser import get
 
 from tinydb import Storage
 
 # FilesKraken modules
-from blueprints import DataBlueprint, ParserField
+from blueprints import DataBlueprint
+from fields import FieldsTransformer, ParserField, NoUpdate
 from retools import SchemeMatcher
 from krakens_nest import Kraken
-from database import DatabaseManager, JsonDatabse, serialization
+from database import Database, DatabaseManager, JsonDatabse, serialization
 from parsers import DataParser
-from info import CreatedFilesOrganizedInfo, DeletedFilesOrganizedInfo, FileChangesInfo
+from info import FileChangesInfo
 
 
 '''
@@ -31,6 +32,33 @@ it can't just yield filenames without description. The information about
 deletion or creation of file is key-concept of the app.
 '''
 
+
+class BlueprintsDBUpdater:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db_manager = db_manager
+
+    def update(self, builder_data) -> None:
+        for bp, structures in builder_data.items():
+            for id, info in structures.items():
+                structure_info = info.structure_info
+                if structure_info.is_new:
+                    entry = self.entry_from_structure(structure_info.structure, id)
+                    self.db_manager.add_blueprint(entry)
+                else:
+                    if info.updates:
+                        self.db_manager.update_blueprint(bp.name, id, info.updates)                        
+
+    @staticmethod
+    def entry_from_structure(structure: DataBlueprint, id) -> Dict[str, Any]:
+        entry = {'blueprint': structure.name, 'id': id}
+        for field in fields(structure):
+            value = getattr(structure, field.name)
+            if field.type == ParserField:
+                value = value.value
+            entry[field.name] = FieldsTransformer.to_db(field.type, value)
+        return entry
+
+
 @dataclass
 class BlueprintInfo:
     blueprint: DataBlueprint
@@ -42,19 +70,24 @@ class BlueprintInfo:
 @dataclass
 class StructureInfo:
     structure: DataBlueprint
-
+    is_new: bool = True
+    scheme_matcher = None
     def __post_init__(self):
-        self.scheme_matcher = SchemeMatcher(self.structure.match_scheme)
+        if hasattr(self.structure, 'match_scheme'):
+            self.scheme_matcher = SchemeMatcher(self.structure.match_scheme)
 
 
 class BlueprintBuilder:
-    _Structures = namedtuple('Structures', 'created deleted')
-    def __init__(self, kraken: Kraken):
+    _StructureIdInfo = namedtuple('StructureIdInfo', 'structure_info updates')
+    def __init__(self, kraken: Kraken,
+                    db_manager: DatabaseManager,
+                    db_updater: BlueprintsDBUpdater):
         self.kraken = kraken
+        self.db_manager = db_manager
+        self.db_updater = db_updater
         self.blueprints = {bp: BlueprintInfo(bp) for bp in DataBlueprint.__subclasses__()}
-        self.structures = self._Structures(
-            {bp: {} for bp in self.blueprints},
-            {bp: {} for bp in self.blueprints})
+        self.structures = {bp: {} for bp in self.blueprints}
+            
         self.kraken.events.append(self.listen)
 
     def listen(self, info):
@@ -66,273 +99,117 @@ class BlueprintBuilder:
 
     def build(self, data: NamedTuple):
         for file in data.created:
-            self._process_file(file, self.structures.created)
+            self._process_file(file, 'created')
         for file in data.deleted:
-            self._process_file(file, self.structures.deleted)
-        constructed = {
-            bp: structures
-            for bp, structures in self.structures.created.items() if structures}
-        deconstructed = {
-            bp: structures
-            for bp, structures in self.structures.deleted.items() if structures}
-        if constructed:
-            self.kraken.move_tentacle(CreatedFilesOrganizedInfo(constructed))
-        if deconstructed:
-            self.kraken.move_tentacle(DeletedFilesOrganizedInfo(deconstructed))
+            self._process_file(file,'deleted')
+        
+        self.update_parser_fields()
+
+        self.db_updater.update(self.structures)
         # Delete all builded structures
         self.clear_structures()
 
     # It will be good to write matched blueprints iterator
-    def _process_file(
-        self,
-        file: pathlib.Path,
-        structures_field: Dict[DataBlueprint, Dict[str, StructureInfo]]) -> None:
-
+    def _process_file(self, file: pathlib.Path, mode: str) -> None:
         file = pathlib.Path(file)
-
-        file_name = file.name # Idk if it's usefull at all to have alternative to pathlib.Path
         for bp, bp_info in self.blueprints.items():
-            structures = structures_field[bp]
+            structures = self.structures[bp]
             # At this step shecme_matcher matches only required fields as set in BlueprintInfo
             # Required fields must be of type str
-            match = bp_info.scheme_matcher.match(file_name)
+            match = bp_info.scheme_matcher.match(file.name)
             if len(match) == len(bp.required_fields): # all required fields found
                 structure_id = '__'.join(match.values()) # required fields combination
-                structure_info = structures.get(structure_id)
-                if structure_info: # object with structure_id is already being constructed
-                    self._check_optional(file, structure_info)
-                else:
-                    # Here we initialize an instance of bp with required args
-                    # and further name it a structure
-                    structure_info = StructureInfo(bp(*match.values()))
-                    structures[structure_id] = structure_info
-                    # Only required fields have been checked, but
-                    # the optional fields need to be checked as well
-                    self._check_optional(file, structure_info)
-
-    def _check_optional(self, file: pathlib.Path, structure_info: StructureInfo):
-        optional_match = structure_info.scheme_matcher.match(file.name)
-        if optional_match:  # optional fields match
-            formatted_fields = self.format_fields(structure_info.structure, file, optional_match)
-            self._set_optional(structure_info.structure, formatted_fields)
+                id_info = structures.get(structure_id)
+                structure_info = id_info.structure_info if id_info else None
+                if not structure_info:
+                    # Check if there is a structure with the same ID in DB
+                    db_entry = self.db_manager.get_blueprint(bp.name, structure_id)
+                    if db_entry:
+                        structure_info = StructureInfo(bp.create(**db_entry), is_new=False)
+                    else:
+                        # Here we initialize an instance of bp with required args
+                        # and further name it a structure. It's not necessary to format
+                        # required fields after match because they can only be of str type
+                        # and matcher always returns str
+                        structure_info = StructureInfo(bp.create(**match))
+                structures[structure_id] = self._StructureIdInfo(structure_info, {})
+                # We need to check also optional fields on current file
+                # But there could be blueprint without optional fields
+                if structure_info.scheme_matcher:
+                    optional_match = structure_info.scheme_matcher.match(file.name)
+                    if optional_match:
+                        # After match formatting
+                        formatted_fields = self.format_fields(structure_info.structure, file, optional_match)
+                        # Compare current field values with new ones
+                        updates = self.get_updates(structure_info.structure, formatted_fields, mode)
+                        if not structure_info.is_new:
+                            # Set updates for current structure_id
+                            self.set_updates(bp, structure_id, updates)
+                        # Set updated field values for current structure
+                        self.set_fields(structure_info.structure, updates)
 
     @staticmethod
-    def format_fields(bp: DataBlueprint, file: pathlib.Path, match: Dict[str, str]):
+    def format_fields(structure: DataBlueprint, file: pathlib.Path, match: Dict[str, str],) -> None:
         '''
         Formats structure field values based on matched values and type annotations
+        using FieldsTransformer
         '''
-
-        # I think it can be represented as specification in the blueprints module
+        field_types = {f: structure.get_field_type(f) for f in match}
         formatted_fields = {}
-        field_types = {f: bp.get_field_type(f) for f in match}
         for field, matched_value in match.items():
             f_type = field_types[field]
-            if f_type in {str, List[str]}:
-                formatted_fields[field] = matched_value
-            elif f_type in {pathlib.Path, List[pathlib.Path]}:
-                formatted_fields[field] = file.absolute()
-            elif f_type == ParserField:
-                # ParserField could be matched only if it has a pattern and no dependent fields
-                parser = getattr(bp, field).parser
-                formatted_fields[field] = parser.parse(file)
+            field_default = getattr(structure, field)
+            # ParserField parsers now run in any mode, and it's bad
+            formatted_fields[field] = FieldsTransformer.after_match(f_type, file,
+                                                                    matched_value,
+                                                                    field_default=field_default)
         return formatted_fields
 
 
     @staticmethod
-    def check_field_type(structure: DataBlueprint, field: str, type_to_check: Any):
-        return structure.get_field_type(field) == type_to_check
+    def get_updates(structure, matched_fields, mode):
+        updates = {}
+        for field, new_value in matched_fields.items():
+            f_type = structure.get_field_type(field)
+            old_value = getattr(structure, field)
+            update = FieldsTransformer.update(f_type, old_value, new_value, mode)
+            if not update == NoUpdate:
+                updates[field] = update
+        return updates
+
+    def set_updates(self, bp, id, updates):
+        self.structures[bp][id].updates.update(updates)
 
     @staticmethod
-    def _set_optional(structure: DataBlueprint, fields):
-        list_types = {List[pathlib.Path], List[str]}
-        value_types = {str, pathlib.Path}
+    def set_fields(structure: DataBlueprint, fields) -> None:
+        for field, new_value in fields.items():
+            setattr(structure, field, new_value)
 
-        '''Here is the same problem which is described in BlueprintsDBUpdater
-        compare_blueprints() method. When user defines single value field for
-        custom blueprint, a situation may arise where several files match this field.
-        Now this method just places new_value instead old_value. So the last iterated will
-        remain as a field value.'''
-        for field, value in fields.items():
-            f_type = structure.get_field_type(field)
-            if f_type in value_types:
-                setted = getattr(structure, field)
-                if setted:
-                    print(
-                        f'WARNING: Second value for the \'{field}\' single value field was reported:',
-                        f'\tPrevious value: {setted}',
-                        f'\tCurrent value: {value}',
-                        'The last value reported for this field will be setted',
-                        'Consider to change the field type to list to save all files')
-                setattr(structure, field, value)
-            elif f_type in list_types:
-                structure_field = getattr(structure, field)
-                structure_field.append(value)
-            elif f_type == DataParser:
-                setattr(structure, field, value)
-                # Dependent fields are processed in BlueprintsDBUpdater
-                # because the new and old structures are compared there.
+    def update_parser_fields(self) -> None:
+        '''
+        Updates ParserFields with dependent fields in all structures
+        '''
+        for bp, structures in self.structures.items():
+            for id, info in structures.items():
+                structure = info.structure_info.structure
+                updates = {}
+                parser_fields = [getattr(structure, field.name)
+                                    for field in fields(structure)
+                                    if structure.get_field_type(field.name) == ParserField]
+                # Select only pf with dependent_fields and without value set
+                parser_fields = [pf for pf in parser_fields
+                                if pf.dependent_fields and not pf.value]
+                for pf in parser_fields:
+                    if structure.fields_are_set(*pf.dependent_fields):
+                        args = [getattr(structure, f) for f in pf.dependent_fields]
+                        # Parsed values are auto set to pf value attr
+                        pf.parse_value(*args)
+                        updates[pf.name] = pf.value
+                #  This pf processing is the worst place of the module
+                self.set_updates(bp, id, updates)
 
     def clear_structures(self):
-        self.structures = self._Structures(
-            {bp: {} for bp in self.blueprints},
-            {bp: {} for bp in self.blueprints})
-
-class BlueprintsDBUpdater:
-    def __init__(self, db_manager: DatabaseManager, kraken: Kraken):
-        self.db_manager = db_manager
-        self.kraken = kraken
-        self.kraken.events.append(self.listen)
-
-    def listen(self, info):
-        if isinstance(info, (CreatedFilesOrganizedInfo, DeletedFilesOrganizedInfo)):
-            print(f'BlueprintDBUpdater has recieved blueprints: {info.structures}')
-            self.process(info)
-
-    def process(self, listener_info):
-        builder_data = listener_info.structures
-        for bp, structures in builder_data.items():
-            bp_name = bp.__name__
-            for id, structure_info in structures.items():
-                db_entry = self.db_manager.get_blueprint(bp_name, id)
-                if not db_entry:
-                    if isinstance(listener_info, CreatedFilesOrganizedInfo):
-                        self.update_parser_fields(structure_info.structure)
-                        print(structure_info.structure)
-                        entry = self.entry_from_structure(structure_info.structure, id)
-                        self.db_manager.add_blueprint(entry)
-                    elif isinstance(listener_info, DeletedFilesOrganizedInfo):
-                        continue
-                else:
-                    old_bp = bp.create(**db_entry)
-                    new_bp = structure_info.structure
-                    try:
-                        if isinstance(listener_info, CreatedFilesOrganizedInfo):
-                            updates = self.compare_blueprints(new_bp, old_bp, 'created')
-                            updates.update(self.update_parser_fields(structure_info.structure, updates))
-                            print(updates)
-                            self.db_manager.update_blueprint(bp_name, id, updates)
-                        elif isinstance(listener_info, DeletedFilesOrganizedInfo):
-                            updates = self.compare_blueprints(new_bp, old_bp, 'deleted')
-                            self.db_manager.update_blueprint(bp_name, id, updates)
-                    except TypeError as exception:
-                        print(new_bp)
-                        print(old_bp)
-                        print(updates)
-                        raise exception
-
-    def compare_blueprints(self,
-        new_bp: DataBlueprint,
-        old_bp: DataBlueprint,
-        mode: str) -> Dict[str, Any]:
-        '''Compares fields of new_bp and old_bp and returns new fields with values'''
-
-        # Mmmm  spaghetti...
-        updates = {}
-        # Below is first solution, but then I added ParserField, which is a dataclass
-        # And it becomes a dict when using asdict, so I had to change this
-        #for new, old in zip(asdict(new_bp).items(), asdict(old_bp).items()):
-        for f in fields(new_bp):
-            field = f.name
-            field_type = new_bp.get_field_type(field) # Type from .__annotations__
-            new_value, old_value = getattr(new_bp, field), getattr(old_bp, field)
-
-            if field in new_bp.required_fields:
-                continue  # we don't want to reset structure required fields
-
-            # No updates or field still empty
-            if (not new_value) or (not new_value and not old_value):
-                continue
-
-            # Equal values
-            if new_value == old_value:
-                # I don't want to delete parsed fields
-                # This is a bad place, because apearing of ParserField here
-                # means that it was matched in BlueprintBuilder, and this is
-                # useless work. But now I don't want to add info about
-                # created/deleted mode to those functions and rewrite whole class.
-
-                if mode == 'deleted' and field_type != DataParser:
-                    updates[field] = None
-                else:
-                    continue
-
-            elif not old_value and mode == 'created':
-                updates[field] = new_value
-
-            # Below are the cases when all fields values present
-            elif new_value != old_value:
-                '''I'm not shure this is 100% useful statement. When file is deleted, we 
-                expect its name to be equal to the one in DB. In the second case file is created
-                and reported as new, but we have another already set value for that field. It seems
-                to be a bug / nonspecificity of matching patterns for some user field. And I think
-                it is better to throw an exception and let him know about that, than just change old
-                value. But I think that some users may prefer to see just WARNING. The better way is
-                to add specificity check for patterns, but i think it's impossible without making 
-                them match full file names. This will result in a loss of usability.'''
-                if field_type in {str, pathlib.Path}:
-                    raise ValueError(
-                            f'Blueprint from DB has a set value in the \'{field}\' field ' +
-                            f'while new value for that field has been reported by monitoring module.\n' +
-                            f'\tOld value: {old_value}\n\tNew value: {new_value}\n\tMode: {mode}')
-
-                elif field_type in {List[str], List[pathlib.Path]}:
-                    if mode == 'created':
-                        updated_list = [el for el in old_value.copy()]
-                        updated_list.extend(el for el in new_value if el not in updated_list)
-                    elif mode == 'deleted':
-                        updated_list = [el for el in old_value if el not in new_value]
-                    updates[field] = [str(el) for el in updated_list]
-
-                elif isinstance(field_type, DataParser):
-                    print('There is no functionality for merging unknown types of ParserField different values')
-                else:
-                    raise NotImplementedError(
-                        f'Comparison for {field_type} type field is not implemented')
-        return updates
-
-    @staticmethod
-    def update_parser_fields(structure: DataBlueprint, updates=None) -> Dict[str, Any]:
-        '''
-        Updates ParserFields with dependent_fields in place  based on already
-        set values and possible updates. Returns dict with updates in field:value format.
-        '''
-        # It's a temporary solution and I hope to clear fields processing in the future.
-        parser_fields = [getattr(structure, field.name)
-                            for field in fields(structure)
-                            if structure.get_field_type(field.name) == ParserField]
-        updates = {}
-        parser_fields = [pf for pf in parser_fields if pf.dependent_fields]
-        for pf in parser_fields:
-            empty_check = structure.fields_are_empty(*pf.dependent_fields)
-            args = []
-            for field, empty in empty_check.items():
-                if empty:
-                    if updates and field in updates:
-                        args.append(updates[field])
-                else:
-                    args.append(getattr(structure, field))
-            if len(args) == len(pf.dependent_fields):
-                pf.parse_value(*args)
-                updates[pf.name] = pf.value
-        return updates
-
-
-    @staticmethod
-    def entry_from_structure(structure: DataBlueprint, id: str):
-        name = structure.__class__.__name__
-        entry = {'blueprint': name, 'id': id}
-        for field in fields(structure):
-            value = getattr(structure, field.name)
-            if value is None:
-                value = None
-            elif field.type == pathlib.Path:
-                value = str(value.absolute())
-            elif field.type == List[pathlib.Path]:
-                value = [str(el.absolute()) for el in value]
-            elif field.type == ParserField:
-                value = value.value # lol
-            entry[field.name] = value
-        return entry
+        self.structures = {bp: {} for bp in self.blueprints}
 
 
 if __name__ == '__main__':
@@ -340,8 +217,8 @@ if __name__ == '__main__':
     # blueprints = db.table('blueprints')
     kraken = Kraken()
     db_manager = DatabaseManager(db)
-    db_updater = BlueprintsDBUpdater(db_manager, kraken)
-    bb = BlueprintBuilder(kraken)
+    db_updater = BlueprintsDBUpdater(db_manager)
+    bb = BlueprintBuilder(kraken, db_manager, db_updater)
 
     t1 = 'other_154.sample_NG067.lane_69.R1.fastq.gz'
     t2 = 'wgs_154.sample_NG067.lane_69.R1.fastq.gz'

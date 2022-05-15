@@ -7,6 +7,6 @@ class Kraken:
     def __init__(self):
         self.events = Event()
 
-    def move_tentacle(self, args):
+    def release(self, args):
         self.events(args)
 

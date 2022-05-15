@@ -12,14 +12,6 @@ class KrakenInfo:
 class FileChangesInfo(KrakenInfo):
     changes: NamedTuple
 
-@dataclass
-class CreatedFilesOrganizedInfo(KrakenInfo):
-    structures: List[DataBlueprint]
-
-@dataclass
-class DeletedFilesOrganizedInfo(KrakenInfo):
-    structures: List[DataBlueprint]
-
 
 '''
 It's a bad way to add sender to info and I didn't want it.

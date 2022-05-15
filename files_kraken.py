@@ -25,8 +25,8 @@ if __name__ == '__main__':
     kraken = Kraken()
     monitor_manager = MonitorManager(BACKUPS_DIR, kraken)
     db_manager = DatabaseManager(DATABASE)
-    db_updater = BlueprintsDBUpdater(db_manager, kraken)
-    bb = BlueprintBuilder(kraken)
+    db_updater = BlueprintsDBUpdater(db_manager)
+    bb = BlueprintBuilder(kraken, db_manager, db_updater)
 
     upper_src = SingleRootCollector(
         TEST_PATH_3,

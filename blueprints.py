@@ -1,56 +1,22 @@
-from email import parser
-from email.parser import Parser
 import re
 import pathlib
 
-from abc import ABC
 from dataclasses import dataclass, field, fields
 from typing import ClassVar, List, Any, Pattern
-
+from copy import copy, deepcopy
+from datetime import datetime
 # FilesKraken modules
-from parsers import *
-
+from parsers import (
+    RunModifiedParser,
+    ModificationDateParser,
+    RunEndParser,
+    RunStartParser)
+from fields import ParserField, FieldsTransformer
 # It's good idea to create dataclass with constants for blueprints to use it here
-
-
-@dataclass
-class ParserField:
-    name: str
-    parser: DataParser
-    value: Any = None   # Any, but it must be serializable for chosen DB
-    pattern: Pattern = None
-    dependent_fields: list = None
-
-    def __post_init__(self):
-        if self.pattern and self.dependent_fields:
-            raise ValueError(
-                'You can set either [pattern] or [dependent_fields] argument, but not both.')
-        elif not self.pattern and not self.dependent_fields:
-            raise ValueError(
-                'One of [pattern] or [dependent_fields] must be specified.'
-            )
-
-    def __bool__(self):
-        return not self.value is None
-
-    def parse_value(self, *args, **kwargs):
-        self.value = self.parser.parse(*args, **kwargs)
-
 
 @dataclass
 class DataBlueprint:
     required_fields: ClassVar
-
-    def get_field_type(self, field: str):
-        return self.__annotations__[field]
-
-    def fields_are_empty(self, *fields):
-        res = {}
-        for f in fields:
-            if hasattr(self, f):
-                value = getattr(self, f)
-                res[f] = False if value else True
-        return res
 
     def __post_init__(self):
         '''
@@ -60,7 +26,13 @@ class DataBlueprint:
         self.has_parser_fields = False
         for field, value in self.__dict__.items():
             if isinstance(value, ParserField):
-                pf = value
+                # Copy ParserField in each instance.
+                # I don't know another way to solve the problem, when all instances have
+                # the same id of this field. Create method also have deepcopy but it works only
+                # when there is value for it in DB, otherwise object will be created
+                # with default class vlaue.
+                setattr(self, field, deepcopy(value))
+                pf = getattr(self, field)
                 # There could be set either pattern or dependent_fields in a ParserField, not both
                 if pf.pattern:
                     # Each child must have match_scheme declared before super().__post_init__
@@ -75,6 +47,9 @@ class DataBlueprint:
 
     @classmethod
     def create(cls, **kwargs):
+        '''
+        Factory method for all DataBlueprint subclasses
+        '''
         annotations = cls.__annotations__
         required_fields = cls.required_fields.keys()
         required_args = [kwargs[arg] for arg in required_fields]
@@ -83,16 +58,28 @@ class DataBlueprint:
         for field, value in kwargs.items():
             if (field not in required_fields) and (field in annotations):
                 f_type = annotations[field]
-                if value is None:
-                    optional_args[field] = None
-                elif f_type == pathlib.Path:
-                    optional_args[field] = pathlib.Path(value)
-                elif f_type == List[pathlib.Path]:
-                    optional_args[field] = [pathlib.Path(file) for file in value]
-                elif f_type == ParserField:
-                    parser_field = getattr(cls, field)
-                    setattr(parser_field, 'value', value)
+                # Again I need to process ParserField separately...
+                if f_type == ParserField:
+                    parser_field = deepcopy(getattr(cls, field))
+                    # I'm not sure it's okay to change class ParserField like that
+                    parser_field.value = value
+                    optional_args[field] = parser_field
+                    continue
+                optional_args[field] = FieldsTransformer.from_db(f_type, value)
+
         return cls(*required_args, **optional_args)
+
+    @classmethod
+    def get_field_type(cls, field: str):
+        return cls.__annotations__[field]
+
+    def fields_are_set(self, *fields):
+        return all(getattr(self, f) for f in fields if hasattr(self, f))
+
+    @classmethod
+    @property
+    def name(cls):
+        return cls.__name__
 
 
 @dataclass
@@ -124,48 +111,56 @@ class SampleInfoBlueprint(DataBlueprint):
         }
         super().__post_init__()
 
+@dataclass
+class RunInfoBlueprint(DataBlueprint):
+    run: str
+    start_time: ParserField = ParserField('start_time', RunStartParser, dependent_fields=['run'])
+    end_time: ParserField = ParserField('end_time', RunEndParser, dependent_fields=['run'])
+    required_fields: ClassVar = {'run': (re.compile(r'^(other|ces|wes|wgs)_\d+'), 0)}
+
 if __name__ == '__main__':
-    t = SampleInfoBlueprint('other_150', 'NG050')
-    # print(t.__annotations__)
-    from datetime import datetime
-    t1 = {
-        'run': 'other_120',
-        'sample': 'mgg1234',
-        'csv': [pathlib.Path('other_120.mgg1234.csv')],
-        'fastqs': ['fastq_1.fq.gz', 'fastq_2.fq.gz'],
-        'vcf': pathlib.Path('other_120.Smgg1234.vcf')
-        }
+    # t = SampleInfoBlueprint('other_150', 'NG050')
+    # # print(t.__annotations__)
+    # from datetime import datetime
+    # t1 = {
+    #     'run': 'other_120',
+    #     'sample': 'mgg1234',
+    #     'csv': [pathlib.Path('other_120.mgg1234.csv')],
+    #     'fastqs': ['fastq_1.fq.gz', 'fastq_2.fq.gz'],
+    #     'vcf': pathlib.Path('other_120.Smgg1234.vcf')
+    #     }
 
-    t2 = t.create(**t1)
-    # print(t2.fields_are_empty('run', 'sample'))
-    print(t2)
+    # t2 = t.create(**t1)
+    # # print(t2.fields_are_empty('run', 'sample'))
+    # # print(t2)
+    # # print(t2)
+    # t3 = pathlib.Path('other_120.Smgg1234.vcf')
+    # # print(getattr(SampleInfoBlueprint, 'date'))
+    # # print(getattr(t2, 'csv'))
 
+    t4_fields = {
+        'run': 'other_140',
+        'start_time': datetime.now(),
+        'end_time': datetime.now()
+    }
 
-    def update_parser_fields(structure: DataBlueprint, updates=None):
-        '''
-        Updates ParserFields with dependent_fields in place  based on
-        already set values and possible updates.
-        '''
-        # It's a temporary solution and I hope to clear fields processing in the future.
-        parser_fields = [getattr(structure, field.name)
-                            for field in fields(structure)
-                            if structure.get_field_type(field.name) == ParserField]
+    t5_fields = {
+        'run': 'other_130',
+        'start_time': datetime.now(),
+        'end_time': None
 
-        parser_fields = [pf for pf in parser_fields if pf.dependent_fields]
-        for pf in parser_fields:
-            empty_check = structure.fields_are_empty(*pf.dependent_fields)
-            args = []
-            for field, empty in empty_check.items():
-                if empty:
-                    if updates and field in updates:
-                        args.append(updates[field])
-                else:
-                    args.append(getattr(structure, field))
-            if len(args) == len(pf.dependent_fields):
-                    pf.parse_value(*args)
+    }
+    t4 = RunInfoBlueprint.create(**t4_fields)
+    t5 = RunInfoBlueprint.create(**t5_fields)
 
-
-    update_parser_fields(t2)
-    print(t2)
-    t3 = pathlib.Path('other_120.Smgg1234.vcf')
-
+    print(RunInfoBlueprint.start_time)
+    # new_field = RunInfoBlueprint.start_time
+    # new_field.value = datetime.now()
+    # setattr(t5, 'start_time', new_field)
+    # print(t4)
+    # print(t5)
+    # test_pf = ParserField('end_time', RunEndParser, dependent_fields=['run'], value=datetime.now())
+    # print(id(t4.start_time))
+    # print(id(t5.start_time))
+    # print(id(RunInfoBlueprint.start_time))
+    # print(setattr(t5, 'aboba', 10))
