@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from typing import List, Any, Optional, Pattern, Union
 
 # FilesKraken modules
-from parsers import DataParser
-
+from blueprint import DataParser
+from functions import get_all_subclasses
 
 class NoUpdate:
     pass
@@ -122,7 +122,7 @@ class StrListFieldBehavior(FieldBehavior):
             if not new_value or (not old_value and not new_value):
                 return NoUpdate
             elif not old_value:
-                return new_value
+                return new_value # New value is not empty
             elif new_value == old_value:
                 return NoUpdate
             elif new_value != old_value:
@@ -144,6 +144,7 @@ class StrListFieldBehavior(FieldBehavior):
     def from_db(value: Optional[List[str]]):
         return value
 
+
 class PathlibListFieldBehavior(StrListFieldBehavior):
     field_type = List[pathlib.Path]
 
@@ -154,10 +155,11 @@ class PathlibListFieldBehavior(StrListFieldBehavior):
     @staticmethod
     def to_db(value: List[pathlib.Path]) -> Optional[List[str]]:
         return [str(file.absolute()) for file in value] if value else None
-    
+
     @staticmethod
     def from_db(value: Optional[List[str]]) -> Optional[List[pathlib.Path]]:
         return [pathlib.Path(file) for file in value] if value else None
+
 
 class ParserFieldBehavior(FieldBehavior):
     field_type = ParserField
@@ -198,16 +200,6 @@ class ParserFieldBehavior(FieldBehavior):
     @staticmethod
     def from_db(value: Optional[Any]) -> Optional[Any]:
         return value
-
-
-def get_all_subclasses(cls):
-    all_subclasses = []
-
-    for subclass in cls.__subclasses__():
-        all_subclasses.append(subclass)
-        all_subclasses.extend(get_all_subclasses(subclass))
-
-    return all_subclasses
 
 
 class FieldsTransformer:

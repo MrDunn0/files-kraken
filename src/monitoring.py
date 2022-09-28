@@ -14,22 +14,13 @@ from krakens_nest import Kraken
 from collector import SingleRootCollector
 from retools import BoolOutputMultimatcher, ReSorter, GroupSearcher
 from info import FileChangesInfo
-
+from functions import get_module_dir, create_dirs
 
 class Event(list):
     def __call__(self, *args, **kwargs):
         for item in self:
             item(*args, **kwargs)
 
-
-class FilesWatcher(ABC):
-    def __init__(self, collector):
-        self.collector = collector
-        self.prev_state = None
-
-    @abstractmethod
-    def get_changes(self):
-        pass
 
 @dataclass
 class Changes:
@@ -57,15 +48,16 @@ class ChangesFactory:
             return Changes(created, deleted)
 
 
-class SingleIterationWatcher(FilesWatcher):
+class ChangesWatcher:
     _ids = count(0)
     def __init__(self, collector, changes_formatter: Callable,
-                 prev_state=None, **formatter_args):
-        super().__init__(collector)
-        self.name = f'SingleIterationWatcher_{next(self._ids)}'
+                 prev_state=None, name=None, **formatter_args):
+        self.collector = collector
+        self._id = f'ChangesWatcher_{next(self._ids)}'
         self.prev_state = prev_state if prev_state else self.collection()
         self.changes_formatter = changes_formatter
         self._formatter_args = formatter_args
+        self._name = name
 
     def get_changes(self):
         cur_state = self.collector.collect()
@@ -77,6 +69,10 @@ class SingleIterationWatcher(FilesWatcher):
     @property
     def collection(self):
         return self.collector.output_format
+
+    @property
+    def name(self):
+        return self._name if self.name else self._id
 
     def set_state(self, state):
         self.prev_state = state
@@ -146,21 +142,22 @@ class BackupManager:
 class MonitorManager:
     @dataclass
     class MonitorInfo:
-        backup_file: Optional[pathlib.Path]
         timeout: int
         reindex_timeout: Optional[time.time]
-        coworkers: List[SingleIterationWatcher] = field(default_factory=list)
+        backup_file: Optional[pathlib.Path]
+        coworkers: List[ChangesWatcher] = field(default_factory=list)
         last_reindex: Optional[time.time] = None
         last_run: Optional[time.time] = None
 
-    def __init__(self, backups_dir: pathlib.Path, kraken=None):
+    def __init__(self, backups_dir: pathlib.Path=None, kraken=None):
         self.kraken = kraken
         self.monitors = {}
         self.backup_manager = BackupManager()
-        self.backups_dir = backups_dir
-        self._exit = False
+        self.backups_dir = backups_dir if backups_dir else get_module_dir().parent / 'backups'
+        create_dirs(self.backups_dir)
+        self._exit = False # not implemented
 
-    def add_monitor(self, monitor: SingleIterationWatcher, backup_file=None,
+    def add_monitor(self, monitor: ChangesWatcher, backup_file=None,
                     timeout: int = 10,
                     reindex_timeout: int = None) -> None:
 
@@ -169,9 +166,9 @@ class MonitorManager:
             # prev_state type of monitor should be difined here
             self.backup_manager.add(monitor, backup_file=backup_file,
                                     collection=type(monitor.prev_state))
-            monitor.set_state(self.backup_manager.load(monitor))
+            monitor.set_state(self.backup_manager.load(monitor)) # loading backups to monitor
 
-    def add_coworker(self, monitor: SingleIterationWatcher, coworker):
+    def add_coworker(self, monitor: ChangesWatcher, coworker):
         self.monitors[monitor].coworkers.append(coworker)
 
     def _time_to_rerun(self, info):
@@ -264,53 +261,53 @@ class MonitorManager:
 
 if __name__ == '__main__':
     pass
-    # TEST_PATH_1 = '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test'
-    # TEST_PATH_2 = '/media/EXOMEDATA/exomes'
-    TEST_PATH_3 = '/media/EXOMEDATA/exomes/test_runs'
-    SCRIPT_DIR = pathlib.Path(__file__).parent.absolute()
-    BACKUPS_DIR = SCRIPT_DIR / 'backups'
-    CW_BACKUP_FILE = BACKUPS_DIR / 'cw_backups.json'
-    monitor_manager = MonitorManager(BACKUPS_DIR)
-    upper_src = SingleRootCollector(
-        TEST_PATH_3,
-        matcher = BoolOutputMultimatcher(
-            [
-                (r'^ces_\d+', 0),
-                (r'^wes_\d+', 0),
-                (r'^other_\d+', 0),
-                (r'^wgs_\d+', 0)
-            ]
-            ),
-        match_dirs=True,
-        max_depth=0)
-    lower_src = SingleRootCollector(
-        None,
-        matcher = BoolOutputMultimatcher([
-            (r'fastq\.gz', 0),
-            (r'Final\.vcf', 0),
-            (r'\.csv', 0),
-            (r'\.bam$', 0)
-            ]),
-        keep_empty_dirs=False)
+    # # TEST_PATH_1 = '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test'
+    # # TEST_PATH_2 = '/media/EXOMEDATA/exomes'
+    # TEST_PATH_3 = '/media/EXOMEDATA/exomes/test_runs'
+    # SCRIPT_DIR = pathlib.Path(__file__).parent.absolute()
+    # BACKUPS_DIR = SCRIPT_DIR / 'backups'
+    # CW_BACKUP_FILE = BACKUPS_DIR / 'cw_backups.json'
+    # monitor_manager = MonitorManager(BACKUPS_DIR)
+    # upper_src = SingleRootCollector(
+    #     TEST_PATH_3,
+    #     matcher = BoolOutputMultimatcher(
+    #         [
+    #             (r'^ces_\d+', 0),
+    #             (r'^wes_\d+', 0),
+    #             (r'^other_\d+', 0),
+    #             (r'^wgs_\d+', 0)
+    #         ]
+    #         ),
+    #     match_dirs=True,
+    #     max_depth=0)
+    # lower_src = SingleRootCollector(
+    #     None,
+    #     matcher = BoolOutputMultimatcher([
+    #         (r'fastq\.gz', 0),
+    #         (r'Final\.vcf', 0),
+    #         (r'\.csv', 0),
+    #         (r'\.bam$', 0)
+    #         ]),
+    #     keep_empty_dirs=False)
 
-    lower_src_2 = SingleRootCollector(
-        None,
-        matcher = BoolOutputMultimatcher([r'hs_metrics', r'HS_Report\.html']),
-        keep_empty_dirs=False)
+    # lower_src_2 = SingleRootCollector(
+    #     None,
+    #     matcher = BoolOutputMultimatcher([r'hs_metrics', r'HS_Report\.html']),
+    #     keep_empty_dirs=False)
 
-    sorter = ReSorter(GroupSearcher(r'_(\d+)', 1), int)
+    # sorter = ReSorter(GroupSearcher(r'_(\d+)', 1), int)
 
-    upper_siw = SingleIterationWatcher(upper_src, sorter=sorter,
-                                        changes_formatter=ChangesFactory.dict_collection,
-                                        keep_empty_dirs=True)
-    recursive_siw = SingleIterationWatcher(lower_src, keep_empty_dirs=False,
-                                            changes_formatter=ChangesFactory.dict_collection)
+    # upper_siw = ChangesWatcher(upper_src, sorter=sorter,
+    #                                     changes_formatter=ChangesFactory.dict_collection,
+    #                                     keep_empty_dirs=True)
+    # recursive_siw = ChangesWatcher(lower_src, keep_empty_dirs=False,
+    #                                         changes_formatter=ChangesFactory.dict_collection)
 
 
-    rec_siw_2 = SingleIterationWatcher(lower_src_2, keep_empty_dirs=False,
-                                            changes_formatter=ChangesFactory.dict_collection)
+    # rec_siw_2 = ChangesWatcher(lower_src_2, keep_empty_dirs=False,
+    #                                         changes_formatter=ChangesFactory.dict_collection)
 
-    monitor_manager.add_monitor(upper_siw, CW_BACKUP_FILE, timeout =5, reindex_timeout=10)
-    monitor_manager.add_coworker(upper_siw, recursive_siw)
-    monitor_manager.add_coworker(upper_siw, rec_siw_2)
-    monitor_manager.start()
+    # monitor_manager.add_monitor(upper_siw, CW_BACKUP_FILE, timeout =5, reindex_timeout=10)
+    # monitor_manager.add_coworker(upper_siw, recursive_siw)
+    # monitor_manager.add_coworker(upper_siw, rec_siw_2)
+    # monitor_manager.start()

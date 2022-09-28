@@ -1,20 +1,18 @@
-from ctypes import Structure
 import pathlib
-from dataclasses import dataclass, asdict, fields
+from dataclasses import dataclass, fields
 from collections import namedtuple
-from re import M
-from typing import List, Dict, NamedTuple, Any, Union
+
+from typing import List, Dict, NamedTuple, Any
 from webbrowser import get
 
 from tinydb import Storage
 
 # FilesKraken modules
-from blueprints import DataBlueprint
+from blueprint import DataBlueprint
 from fields import FieldsTransformer, ParserField, NoUpdate
 from retools import SchemeMatcher
 from krakens_nest import Kraken
-from database import Database, DatabaseManager, JsonDatabse, serialization
-from parsers import DataParser
+from database import DatabaseManager, JsonDatabse, serialization
 from info import FileChangesInfo
 
 
@@ -46,7 +44,7 @@ class BlueprintsDBUpdater:
                     self.db_manager.add_blueprint(entry)
                 else:
                     if info.updates:
-                        self.db_manager.update_blueprint(bp.name, id, info.updates)                        
+                        self.db_manager.update_blueprint(bp.name, id, info.updates)
 
     @staticmethod
     def entry_from_structure(structure: DataBlueprint, id) -> Dict[str, Any]:
@@ -87,7 +85,7 @@ class BlueprintBuilder:
         self.db_updater = db_updater
         self.blueprints = {bp: BlueprintInfo(bp) for bp in DataBlueprint.__subclasses__()}
         self.structures = {bp: {} for bp in self.blueprints}
-            
+
         self.kraken.events.append(self.listen)
 
     def listen(self, info):
@@ -102,7 +100,7 @@ class BlueprintBuilder:
             self._process_file(file, 'created')
         for file in data.deleted:
             self._process_file(file,'deleted')
-        
+
         self.update_parser_fields()
 
         self.db_updater.update(self.structures)
@@ -114,7 +112,7 @@ class BlueprintBuilder:
         file = pathlib.Path(file)
         for bp, bp_info in self.blueprints.items():
             structures = self.structures[bp]
-            # At this step shecme_matcher matches only required fields as set in BlueprintInfo
+            # At this step scheme_matcher matches only required fields as set in BlueprintInfo
             # Required fields must be of type str
             match = bp_info.scheme_matcher.match(file.name)
             if len(match) == len(bp.required_fields): # all required fields found

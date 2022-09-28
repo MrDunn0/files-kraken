@@ -3,8 +3,6 @@ import pathlib
 from abc import ABC, abstractmethod
 
 
-from retools import BoolOutputMultimatcher
-
 class FilesCollection(ABC):
     pass
 
@@ -40,7 +38,7 @@ class DictCollection(FilesCollection, dict):
             elif value is None:
                 list_out.append(key)
             else:
-                raise ValueError(f'Wrong value type for DictCollection: {type(value)}')
+                raise ValueError(f'Wrong value type for DictCollection: {type(value)}. Key: {key}')
         return [pathlib.Path(el) for el in list_out] if to_pathlib else list_out
 
     def to_list(self, keep_empty_dirs=False, to_pathlib=False, **kwargs):
@@ -76,7 +74,7 @@ class SingleRootCollector(FilesCollector):
         self.max_depth = max_depth
         self.match_dirs = match_dirs
         self.keep_empty_dirs = keep_empty_dirs
-        self.output_format = output_format
+        self.output_format = output_format # actually it supports only collections inherited from dict
 
     def collect(self, root=None, cur_depth=0):
         collection = self.output_format()
@@ -126,7 +124,7 @@ class SingleRootCollector(FilesCollector):
 
 
 if __name__ == '__main__':
-    
+    pass
     # exomes = '/media/EXOMEDATA/exomes'
     # matcher = Multimatcher([('BR1605', 'fastq.gz')])
     # src = SingleRootCollector(exomes, matcher=matcher)
@@ -142,18 +140,46 @@ if __name__ == '__main__':
     # collection = src.collect()
     # print(collection)
     # print(DictCollection(collection).to_list(keep_empty_dirs=True))
-    lower_src = SingleRootCollector(
-    '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test',
-    matcher = BoolOutputMultimatcher(
-            [(r'fastq\.gz', 0),
-            (r'\.vcf', 0),
-            (r'\.csv', 0),
-            (r'\.bam$', 0)
-            ],
-            exclude=[r'(?:other|ces|wes|wgs|)_\d+\.(AF|GF|S\d[0-1]?)\.vcf$']),
-    keep_empty_dirs=False)
+    # lower_src = SingleRootCollector(
+    # '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test',
+    # matcher = BoolOutputMultimatcher(
+    #         [(r'fastq\.gz', 0),
+    #         (r'\.vcf', 0),
+    #         (r'\.csv', 0),
+    #         (r'\.bam$', 0)
+    #         ],
+    #         exclude=[r'(?:other|ces|wes|wgs|)_\d+\.(AF|GF|S\d[0-1]?)\.vcf$']),
+    # keep_empty_dirs=False)
 
-    print(lower_src.collect())
+    # print(lower_src.collect())
     # matcher = BoolOutputMultimatcher([r'fastq\.gz', (r'Final\.vcf', 0), r'\.csv', r'\.bam$'], mode='any')
+    from retools import BoolOutputMultimatcher
+    TEST_DATA_ROOT = pathlib.Path('/mnt/c/Users/misha/Desktop/materials/Programming/files-kraken/tests/tests_data')
+    TEST_DATA_PATTERNS = [r'run_[0-9]+', r'.+\.fastq.gz', r'.+\.bam', r'.+metrics.txt', r'.+results.txt']
 
+
+    def create_BOM(*args, **kwargs):
+        return BoolOutputMultimatcher(*args, **kwargs)
+
+
+    test_matcher = create_BOM(TEST_DATA_PATTERNS)
+
+
+    def create_SRC(*args, **kwargs):
+        return SingleRootCollector(*args, **kwargs)
+
+
+    def test_collect():
+        src = create_SRC(root=TEST_DATA_ROOT, matcher=test_matcher)
+        print(src.collect())
+
+    # src = create_SRC(root=TEST_DATA_ROOT, matcher=test_matcher)
+    # print(src)
+    # print(test_matcher.match('run_1'))
+
+    import re
+    from retools import ReExecutor
+    print(test_matcher.match('run'))
+    # print(re.fullmatch(r'run_\d+', 'run_1').group(0))
+    # print(ReExecutor.fullmatch(r'run_\d+', 'run_1'))
     

@@ -4,6 +4,9 @@ from abc import abstractmethod
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Optional
 
+
+from src.blueprint import DataParser
+
 # TIMEZONE_UTC_OFFSET = timedelta(hours=3)
 # TIMEZONE = timezone(TIMEZONE_UTC_OFFSET, name='MCK')
 
@@ -12,12 +15,6 @@ TIMEZONE = pytz.timezone('Europe/Moscow')
 # Config will be somewhere here
 RUNS_PATH = pathlib.Path(
             '/mnt/c/Users/misha/Desktop/materials/Programming/files-kraken/test')
-
-class DataParser:
-    @staticmethod
-    def parse(*args, **kwargs):
-        pass
-
 
 class ModificationDateParser(DataParser):
     # https://stackoverflow.com/questions/237079/how-do-i-get-file-creation-and-modification-date-times

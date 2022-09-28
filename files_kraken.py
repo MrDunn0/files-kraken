@@ -6,19 +6,24 @@ from tinydb import Storage
 from krakens_nest import Kraken
 from retools import ReSorter, GroupSearcher, BoolOutputMultimatcher
 from collector import SingleRootCollector
-from monitoring import MonitorManager, SingleIterationWatcher, ChangesFactory
+from monitoring import MonitorManager, ChangesWatcher, ChangesFactory
 from data_organizer import BlueprintBuilder, BlueprintsDBUpdater
 from database import DatabaseManager, JsonDatabse, serialization
 
-
+## Субпарсеры для run/stop и т.п.
+## модуль initializer, который читает конфиг и регистрирует все workflow
+## workflow - класс, который аггрегирует
+    # Путь до БД
+    # Путь до бэкапов (сначала сделаю просто дефолт-папку с именем WF)
+    # 
 if __name__ == '__main__':
-    TEST_PATH_1 = '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test'
-    TEST_PATH_2 = '/media/EXOMEDATA/exomes/'
+    # TEST_PATH_1 = '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test'
+    # TEST_PATH_2 = '/media/EXOMEDATA/exomes/'
     TEST_PATH_3 = '/mnt/c/Users/misha/Desktop/materials/Programming/files-kraken/test'
     SCRIPT_DIR = pathlib.Path(__file__).parent.absolute()
     BACKUPS_DIR = SCRIPT_DIR / 'backups'
     CW_BACKUP_FILE = BACKUPS_DIR / 'cw_backups.json'
-    
+
     DATABASE = JsonDatabse('/mnt/c/Users/misha/Desktop/materials/Programming/files-kraken/backups/db.json',
                             storage=serialization)
 
@@ -59,14 +64,14 @@ if __name__ == '__main__':
 
     sorter = ReSorter(GroupSearcher(r'_(\d+)', 1), int)
 
-    upper_siw = SingleIterationWatcher(upper_src, sorter=sorter,
+    upper_siw = ChangesWatcher(upper_src, sorter=sorter,
                                         changes_formatter=ChangesFactory.dict_collection,
                                         keep_empty_dirs=True)
-    recursive_siw = SingleIterationWatcher(lower_src, keep_empty_dirs=False,
+    recursive_siw = ChangesWatcher(lower_src, keep_empty_dirs=False,
                                             changes_formatter=ChangesFactory.dict_collection)
 
 
-    rec_siw_2 = SingleIterationWatcher(lower_src_2, keep_empty_dirs=False,
+    rec_siw_2 = ChangesWatcher(lower_src_2, keep_empty_dirs=False,
                                             changes_formatter=ChangesFactory.dict_collection)
 
     monitor_manager.add_monitor(upper_siw, CW_BACKUP_FILE, timeout =5, reindex_timeout=10)

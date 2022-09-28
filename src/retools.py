@@ -5,16 +5,16 @@ from typing import Dict, Pattern
 
 class ReExecutor:
     @staticmethod
-    def _return_group(regexp_result, group):
+    def _return_group(regexp_result, group) -> str | None:
         if regexp_result:
             return regexp_result.group(group)
+
     @staticmethod
-    def fullmatch(pattern, text, group=0):
-        
+    def fullmatch(pattern, text, group=0) -> str | None:
         return ReExecutor._return_group(re.fullmatch(pattern, text), group)
 
     @staticmethod
-    def search(pattern, text, group=0):
+    def search(pattern, text, group=0) -> str | None:
         return ReExecutor._return_group(re.search(pattern, text), group)
 
     @staticmethod
@@ -38,11 +38,11 @@ class Multimatcher(ABC):
 
 
 class MultimatchExecutor(Multimatcher):
-    def __init__(self, patterns, exclude=None):
+    def __init__(self, patterns: list[str | tuple], exclude=None):
         self.patterns = patterns
 
     @staticmethod
-    def multimatch(patterns, text):
+    def multimatch(patterns: list[str | tuple], text: str):
         matches = []
         for entry in patterns:
             match entry:
@@ -74,7 +74,7 @@ class MultimatchExecutor(Multimatcher):
 
 
 class BoolOutputMultimatcher(MultimatchExecutor): # I have big problems with naming...
-    def __init__(self, patterns, mode='any', exclude=None):
+    def __init__(self, patterns: list[str | tuple], mode='any', exclude=None):
         super().__init__(patterns)
         self.mode = mode
         self.exclude = exclude
@@ -125,7 +125,7 @@ class SchemeMatcher(Multimatcher):
                                     case str():
                                         match = ReExecutor.fullmatch(sub_pattern, text)
                                 if match:
-                                    result[key] = match\
+                                    result[key] = match
                                     # Now there is no need to have two matches of text for the same field
                                     break
                 case _:
@@ -145,7 +145,7 @@ class ReSorter:
         self.func = func if func else self._return_self
 
     def sort(self, items):
-        return sorted([i for i in items], 
+        return sorted([i for i in items],
                     key=lambda i: self.func(self.searcher.search(i)))
 
     @staticmethod

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from typing import List, Any, NamedTuple
+from typing import NamedTuple
 
 # FilesKraken modules
-from blueprints import DataBlueprint
+
 
 @dataclass
 class KrakenInfo:
@@ -20,5 +20,3 @@ in order to ensure the reciever is uniquely identified.
 
 Now classes that handle info with sender must check it.
 '''
-
-
