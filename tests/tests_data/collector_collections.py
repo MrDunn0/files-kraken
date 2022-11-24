@@ -1,4 +1,3 @@
-
 COLLECTOR_ALL_FILES = {
     'tests/tests_data/collector_path': {
         'run': {},
@@ -27,6 +26,30 @@ COLLECTOR_ALL_FILES = {
 
 DEFAULT_MATCH_COLLECTION = {
     'tests/tests_data/collector_path': {
+        'run': {},
+        'run1': {
+                'bams': {'sample_1.bam': None},
+                'input': {'sample_1.fastq.gz': None},
+                'results': {'run_1.metrics.txt': None, 'sample_1.results.txt': None},
+                'useless_dir': {}
+        },
+        'run_1': {
+            'bams': {'sample_1.bam': None},
+            'input': {'sample_1.fastq.gz': None},
+            'results': {'run_1.metrics.txt': None, 'sample_1.results.txt': None},
+            'useless_dir': {}
+        },
+        'run_2': {
+            'bams': {'sample_2.bam': None, 'sample_3.bam': None},
+            'input': {'sample_2.fastq.gz': None, 'sample_3.fastq.gz': None},
+            'results': {'sample_2.metrics.txt': None, 'sample_2.results.txt': None, 'sample_3.metrics.txt': None, 'sample_3.results.txt': None},
+        },
+        'run_3': {'bams': {}, 'input': {}, 'results': {}}
+        }
+}
+
+FS_DEFAULT_MATCH_COLLECTION = {
+    '/fs/tests_data/collector_path': {
         'run': {},
         'run1': {
                 'bams': {'sample_1.bam': None},

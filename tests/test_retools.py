@@ -1,6 +1,5 @@
-import pathlib
-from src.retools import ReExecutor, BoolOutputMultimatcher, SchemeMatcher, ReSorter, GroupSearcher
-from test_collector import TEST_DATA_PATTERNS, test_matcher
+from src.retools import ReExecutor, SchemeMatcher, ReSorter, GroupSearcher
+from test_collector import  test_matcher
 
 # ReExecutor.fullmatch
 
@@ -43,6 +42,7 @@ class TestReExecutor:
 
 
 def test_BOM():
+    '''Check that pattern matching works as intended'''
     entries = [
         'run_1', 'sample_1.bam', 'sample_1.fastq.gz',
         'run_1.metrics.txt', 'sample_1.results.txt']
@@ -52,6 +52,7 @@ def test_BOM():
 
 
 def test_BOM_no_match():
+    '''Test no match where it mustn't be'''
     entries = ['run1', 'sample_1.bamm', 'sample_1.fastq', 'run_1.metrics', 'sample_1.results']
     matches = [test_matcher.match(entry) for entry in entries]
     assert not any(matches)
@@ -78,9 +79,15 @@ class TestSchemeMatcher:
         'bam': r'.+\.bam',
         'sample': (r'.+sample_([^\.]+)', 1)
     }
-    
+
     scheme_matcher = SchemeMatcher(scheme)
-    
+
     def test_scheme_matcher(self):
-        pass
-        # assert self.scheme_matcher.match()
+
+        # Full string match
+        assert self.scheme_matcher.match('run_111') == {'run': 'run_111'}
+        # Full string + partial match
+        assert self.scheme_matcher.match('run_111.sample_BR616.fastq.gz') == {
+            'sample': 'BR616', 'fastq': 'run_111.sample_BR616.fastq.gz'}
+        # No match
+        assert self.scheme_matcher.match('test.sample-BR616.bai') == {}

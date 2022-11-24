@@ -1,10 +1,20 @@
 import os
 import pathlib
 from abc import ABC, abstractmethod
-
+from better_abc import abstract_attribute
 
 class FilesCollection(ABC):
-    pass
+    @abstractmethod
+    def extend(self):
+        pass
+
+    @abstractmethod
+    def to_list(self):
+        pass
+
+    @abstractmethod
+    def cut_to_key(self):
+        pass
 
 
 class DictCollection(FilesCollection, dict):
@@ -51,17 +61,17 @@ class DictCollection(FilesCollection, dict):
             return DictCollection()
 
 
-class FilesCollectionBuilder:
-    def __init__(self):
-        self.collection = FilesCollection()
-
-    def build(self):
-        return self.collection
-
-
 class FilesCollector(ABC):
     @abstractmethod
     def collect(self):
+        pass
+
+    @abstract_attribute
+    def root(self):
+        pass
+
+    @abstract_attribute
+    def output_format(self):
         pass
 
 

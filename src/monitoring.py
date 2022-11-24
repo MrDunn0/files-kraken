@@ -11,7 +11,7 @@ from json.decoder import JSONDecodeError
 
 # FilesKraken modules
 from krakens_nest import Kraken
-from collector import SingleRootCollector
+from collector import FilesCollector
 from retools import BoolOutputMultimatcher, ReSorter, GroupSearcher
 from info import FileChangesInfo
 from functions import get_module_dir, create_dirs
@@ -50,8 +50,14 @@ class ChangesFactory:
 
 class ChangesWatcher:
     _ids = count(0)
-    def __init__(self, collector, changes_formatter: Callable,
-                 prev_state=None, name=None, **formatter_args):
+    def __init__(
+        self,
+        collector: FilesCollector,
+        changes_formatter: Callable,
+        prev_state=None,
+        name=None,
+        **formatter_args
+    ):
         self.collector = collector
         self._id = f'ChangesWatcher_{next(self._ids)}'
         self.prev_state = prev_state if prev_state else self.collection()
@@ -63,7 +69,7 @@ class ChangesWatcher:
         cur_state = self.collector.collect()
         changes = self.changes_formatter(self.prev_state, cur_state, **self._formatter_args)
         if changes:
-            self.set_state(cur_state)
+            self.set_state(cur_state) # I'm not sure it's good to set state here
         return changes
 
     @property
@@ -157,7 +163,9 @@ class MonitorManager:
         create_dirs(self.backups_dir)
         self._exit = False # not implemented
 
-    def add_monitor(self, monitor: ChangesWatcher, backup_file=None,
+    def add_monitor(self,
+                    monitor: ChangesWatcher,
+                    backup_file=None,
                     timeout: int = 10,
                     reindex_timeout: int = None) -> None:
 
