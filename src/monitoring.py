@@ -1,8 +1,9 @@
 import time
 import json
 import pathlib
+import sys
 
-from abc import ABC, abstractmethod
+
 from dataclasses import dataclass, field
 from typing import *
 from datetime import datetime
@@ -10,10 +11,10 @@ from itertools import count
 from json.decoder import JSONDecodeError
 
 # FilesKraken modules
-from krakens_nest import Kraken
 from collector import FilesCollector
 from retools import BoolOutputMultimatcher, ReSorter, GroupSearcher
 from info import FileChangesInfo
+from krakens_nest import Kraken
 from functions import get_module_dir, create_dirs
 
 class Event(list):
@@ -53,7 +54,7 @@ class ChangesWatcher:
     def __init__(
         self,
         collector: FilesCollector,
-        changes_formatter: Callable,
+        changes_formatter: Callable = ChangesFactory.dict_collection,
         prev_state=None,
         name=None,
         **formatter_args
@@ -78,7 +79,7 @@ class ChangesWatcher:
 
     @property
     def name(self):
-        return self._name if self.name else self._id
+        return self._name if self._name else self._id
 
     def set_state(self, state):
         self.prev_state = state
@@ -155,7 +156,7 @@ class MonitorManager:
         last_reindex: Optional[time.time] = None
         last_run: Optional[time.time] = None
 
-    def __init__(self, backups_dir: pathlib.Path=None, kraken=None):
+    def __init__(self, backups_dir: pathlib.Path=None, kraken: Kraken=None):
         self.kraken = kraken
         self.monitors = {}
         self.backup_manager = BackupManager()
@@ -168,15 +169,14 @@ class MonitorManager:
                     backup_file=None,
                     timeout: int = 10,
                     reindex_timeout: int = None) -> None:
-
-        self.monitors[monitor] = self.MonitorInfo(backup_file, timeout, reindex_timeout)
+        self.monitors[monitor] = self.MonitorInfo(timeout, reindex_timeout, backup_file)
         if backup_file:
             # prev_state type of monitor should be difined here
             self.backup_manager.add(monitor, backup_file=backup_file,
                                     collection=type(monitor.prev_state))
             monitor.set_state(self.backup_manager.load(monitor)) # loading backups to monitor
 
-    def add_coworker(self, monitor: ChangesWatcher, coworker):
+    def add_coworker(self, monitor: ChangesWatcher, coworker: ChangesWatcher):
         self.monitors[monitor].coworkers.append(coworker)
 
     def _time_to_rerun(self, info):
@@ -202,6 +202,7 @@ class MonitorManager:
                 '\n\tCreated '.join(f for f in changes.created))
 
     def _run_coworkers(self, coworkers, changes):
+        # It's running only on existing files
         coworkers_changes = Changes()
         for file in changes:
             file = pathlib.Path(file)
@@ -230,7 +231,7 @@ class MonitorManager:
                 coworker.set_root(file)
                 coworker_changes = coworker.get_changes()
                 if coworker_changes:
-                    coworkers_changes.extend(coworker_changes)
+                    coworkers_changes.extend(coworker_changes) # really bad naming, it's two different variables
                     self._print_changes(coworker, coworker_changes)
                     self.backup_manager.update(coworker, coworker.prev_state)
                 coworker.reset_state()
@@ -261,7 +262,7 @@ class MonitorManager:
                     if self._time_to_reindex(info) and info.coworkers:
                         print("Reindexing")
                         changes = self._run_coworkers(
-                            info.coworkers, monitor.prev_state.to_list(monitor._formatter_args))
+                            info.coworkers, monitor.prev_state.to_list(**monitor._formatter_args))
                         if changes:
                             self.report_changes(changes)
                         info.last_reindex = time.time()
