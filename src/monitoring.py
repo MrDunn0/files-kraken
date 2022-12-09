@@ -1,8 +1,7 @@
 import time
 import json
 import pathlib
-import sys
-
+import os
 
 from dataclasses import dataclass, field
 from typing import *
@@ -156,13 +155,14 @@ class MonitorManager:
         last_reindex: Optional[time.time] = None
         last_run: Optional[time.time] = None
 
-    def __init__(self, backups_dir: pathlib.Path=None, kraken: Kraken=None):
+    def __init__(self, backups_dir: pathlib.Path=None, kraken: Kraken=None, exit_file=None):
         self.kraken = kraken
         self.monitors = {}
         self.backup_manager = BackupManager()
         self.backups_dir = backups_dir if backups_dir else get_module_dir().parent / 'backups'
         create_dirs(self.backups_dir)
-        self._exit = False # not implemented
+        self._exit_file = exit_file # not implemented
+        open(self._exit_file, 'w').close()
 
     def add_monitor(self,
                     monitor: ChangesWatcher,
@@ -188,6 +188,13 @@ class MonitorManager:
         if info.last_reindex:
             return time.time() - info.last_reindex > info.reindex_timeout
         return True
+
+    def _time_to_exit(self):
+        if self._exit_file:
+            if os.stat(self._exit_file).st_size > 0:
+                os.remove(self._exit_file)
+                return True
+        return False
 
     @staticmethod
     def _print_changes(monitor, changes):
@@ -242,7 +249,7 @@ class MonitorManager:
             self.kraken.release(FileChangesInfo(changes))
 
     def start(self):
-        while not self._exit:
+        while not self._time_to_exit():
             time.sleep(1) # it helps not to load full core
             for monitor, info in self.monitors.items():
                 if self._time_to_rerun(info):
@@ -266,7 +273,8 @@ class MonitorManager:
                         if changes:
                             self.report_changes(changes)
                         info.last_reindex = time.time()
-
+        now = datetime.now().isoformat(' ', 'seconds')
+        print(f'[{now}] Finishing monitoring')
 
 if __name__ == '__main__':
     pass
