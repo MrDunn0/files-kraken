@@ -2,7 +2,7 @@ import pytest
 import pathlib
 from typing import List
 
-from src.fields import FieldsTransformer, NoUpdate
+from src.files_kraken.fields import FieldsTransformer, NoUpdate
 
 
 @pytest.fixture

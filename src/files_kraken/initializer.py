@@ -9,7 +9,7 @@ from data_organizer import BlueprintBuilder, BlueprintsDBUpdater
 from functions import create_dirs
 
 
-APP_DIR = pathlib.Path(__file__).parent.absolute() # change to parent.parent when moved to modules dir
+APP_DIR = pathlib.Path(__file__).parent.absolute()  # change to parent.parent when moved to modules dir
 
 
 @dataclass

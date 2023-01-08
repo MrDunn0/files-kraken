@@ -2,3 +2,24 @@
 pythonpath = [
     ".", "src",
 ]
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "files_kraken"
+version = "1.0"
+authors = [
+    { name="Mikhail Ushakov", email="etozhe.musha@gmail.com"},
+]
+description = "A package that allows to monitor file system changes and store some info in DBbased on these changes."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/MrDunn0/files-kraken"
+"Bug Tracker" = "https://github.com/MrDunn0/files-kraken/issues"

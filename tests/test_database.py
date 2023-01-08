@@ -1,7 +1,7 @@
 import pytest
 import pyfakefs
 import os
-from src.database import JsonDatabse
+from src.files_kraken.database import JsonDatabse
 
 
 @pytest.fixture(scope='class')

@@ -1,6 +1,6 @@
 import pathlib
-from src.collector import SingleRootCollector
-from src.retools import BoolOutputMultimatcher
+from src.files_kraken.collector import SingleRootCollector
+from src.files_kraken.retools import BoolOutputMultimatcher
 from tests_data.collector_collections import (
     DEFAULT_MATCH_COLLECTION,
     COLLECTOR_ALL_FILES,

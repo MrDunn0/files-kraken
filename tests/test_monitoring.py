@@ -14,8 +14,8 @@ from tests_data.collector_collections import (
     FS_DEFAULT_MATCH_COLLECTION,
     FS_MODIFIED_COLLECTION
 )
-from src.collector import DictCollection, SingleRootCollector
-from src.monitoring import ChangesWatcher, ChangesFactory, MonitorManager, BackupManager
+from src.files_kraken.collector import DictCollection, SingleRootCollector
+from src.files_kraken.monitoring import ChangesWatcher, ChangesFactory, MonitorManager, BackupManager
 from copy import deepcopy
 from test_collector import create_SRC, create_BOM, test_matcher
 
