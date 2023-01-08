@@ -1,5 +1,5 @@
 from src.retools import ReExecutor, SchemeMatcher, ReSorter, GroupSearcher
-from test_collector import  test_matcher
+from test_collector import test_matcher
 
 # ReExecutor.fullmatch
 
@@ -35,7 +35,7 @@ class TestReExecutor:
         assert ReExecutor.search(self.rex_ptrn_with_group, 'some_test_run333', 1) is None
 
     def test_findall(self):
-        assert ReExecutor.findall(self.rex_pattern, 'run_1_run2_run_3') == ['run_1', 'run_3'] 
+        assert ReExecutor.findall(self.rex_pattern, 'run_1_run2_run_3') == ['run_1', 'run_3']
 
 
 # BoolOutputMultimatcher

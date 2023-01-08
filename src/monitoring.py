@@ -4,17 +4,18 @@ import pathlib
 import os
 
 from dataclasses import dataclass, field
-from typing import *
 from datetime import datetime
 from itertools import count
 from json.decoder import JSONDecodeError
-
+from typing import (
+    Callable, Dict, Any,
+    Optional, List)
 # FilesKraken modules
 from collector import FilesCollector
-from retools import BoolOutputMultimatcher, ReSorter, GroupSearcher
 from info import FileChangesInfo
 from krakens_nest import Kraken
 from functions import get_module_dir, create_dirs
+
 
 class Event(list):
     def __call__(self, *args, **kwargs):
@@ -26,6 +27,7 @@ class Event(list):
 class Changes:
     created: list = field(default_factory=list)
     deleted: list = field(default_factory=list)
+
     def extend(self, other):
         self.created.extend(other.created)
         self.deleted.extend(other.deleted)
@@ -50,6 +52,7 @@ class ChangesFactory:
 
 class ChangesWatcher:
     _ids = count(0)
+
     def __init__(
         self,
         collector: FilesCollector,
@@ -69,7 +72,7 @@ class ChangesWatcher:
         cur_state = self.collector.collect()
         changes = self.changes_formatter(self.prev_state, cur_state, **self._formatter_args)
         if changes:
-            self.set_state(cur_state) # I'm not sure it's good to set state here
+            self.set_state(cur_state)  # I'm not sure it's good to set state here
         return changes
 
     @property
@@ -129,7 +132,7 @@ class BackupManager:
                     return data
 
     def update(self, obj, new_data):
-        # method requires all obj_info.collection to have .extend() method
+        # method requires all obj_info.collection to have .update() method
         old_data = self.load(obj)
         old_data.update(new_data)
         self.save(obj, old_data)
@@ -145,24 +148,28 @@ class BackupManager:
 
 # maybe  better to import annotation from __future__ and write just list[Monitor] in MonitorInfo
 # https://stackoverflow.com/questions/69802491/create-recursive-dataclass-with-self-referential-type-hints
+
+
 class MonitorManager:
     @dataclass
     class MonitorInfo:
         timeout: int
         reindex_timeout: Optional[time.time]
-        backup_file: Optional[pathlib.Path]
+        backup_file: Optional[pathlib.Path | str]
         coworkers: List[ChangesWatcher] = field(default_factory=list)
         last_reindex: Optional[time.time] = None
         last_run: Optional[time.time] = None
 
-    def __init__(self, backups_dir: pathlib.Path=None, kraken: Kraken=None, exit_file=None):
+    def __init__(self, backups_dir: pathlib.Path = None, kraken: Kraken = None, exit_file=None):
         self.kraken = kraken
         self.monitors = {}
         self.backup_manager = BackupManager()
-        self.backups_dir = backups_dir if backups_dir else get_module_dir().parent / 'backups'
+        self.backups_dir = pathlib.Path(backups_dir) \
+            if backups_dir else get_module_dir().parent / 'backups'
         create_dirs(self.backups_dir)
-        self._exit_file = exit_file # not implemented
-        open(self._exit_file, 'w').close()
+        self._exit_file = exit_file
+        if exit_file:
+            open(exit_file, 'w').close()
 
     def add_monitor(self,
                     monitor: ChangesWatcher,
@@ -172,9 +179,10 @@ class MonitorManager:
         self.monitors[monitor] = self.MonitorInfo(timeout, reindex_timeout, backup_file)
         if backup_file:
             # prev_state type of monitor should be difined here
+            backup_file = self.backups_dir / backup_file
             self.backup_manager.add(monitor, backup_file=backup_file,
                                     collection=type(monitor.prev_state))
-            monitor.set_state(self.backup_manager.load(monitor)) # loading backups to monitor
+            monitor.set_state(self.backup_manager.load(monitor))  # Loading backups to monitor
 
     def add_coworker(self, monitor: ChangesWatcher, coworker: ChangesWatcher):
         self.monitors[monitor].coworkers.append(coworker)
@@ -231,14 +239,15 @@ class MonitorManager:
                 cut_to_key() or something like that in each collection.
                 '''
                 # JSON backups for coworkers contain files structure for
-                # top-level directories reported by the main monitor. This 
+                # top-level directories reported by the main monitor. This
                 # structures nest under the full path of the main directory
                 # which corresponds to the str(pathlib.Path.absolute())
                 coworker.set_state(backup.cut_to_key(str(file.absolute())))
                 coworker.set_root(file)
                 coworker_changes = coworker.get_changes()
                 if coworker_changes:
-                    coworkers_changes.extend(coworker_changes) # really bad naming, it's two different variables
+                    # Really bad naming, it's two different variables
+                    coworkers_changes.extend(coworker_changes)
                     self._print_changes(coworker, coworker_changes)
                     self.backup_manager.update(coworker, coworker.prev_state)
                 coworker.reset_state()
@@ -250,7 +259,7 @@ class MonitorManager:
 
     def start(self):
         while not self._time_to_exit():
-            time.sleep(1) # it helps not to load full core
+            time.sleep(1)  # It helps not to load full core
             for monitor, info in self.monitors.items():
                 if self._time_to_rerun(info):
                     changes = monitor.get_changes()
@@ -275,56 +284,3 @@ class MonitorManager:
                         info.last_reindex = time.time()
         now = datetime.now().isoformat(' ', 'seconds')
         print(f'[{now}] Finishing monitoring')
-
-if __name__ == '__main__':
-    pass
-    # # TEST_PATH_1 = '/home/ushakov/repo/cerbalab/SamplesInfoCollector/test'
-    # # TEST_PATH_2 = '/media/EXOMEDATA/exomes'
-    # TEST_PATH_3 = '/media/EXOMEDATA/exomes/test_runs'
-    # SCRIPT_DIR = pathlib.Path(__file__).parent.absolute()
-    # BACKUPS_DIR = SCRIPT_DIR / 'backups'
-    # CW_BACKUP_FILE = BACKUPS_DIR / 'cw_backups.json'
-    # monitor_manager = MonitorManager(BACKUPS_DIR)
-    # upper_src = SingleRootCollector(
-    #     TEST_PATH_3,
-    #     matcher = BoolOutputMultimatcher(
-    #         [
-    #             (r'^ces_\d+', 0),
-    #             (r'^wes_\d+', 0),
-    #             (r'^other_\d+', 0),
-    #             (r'^wgs_\d+', 0)
-    #         ]
-    #         ),
-    #     match_dirs=True,
-    #     max_depth=0)
-    # lower_src = SingleRootCollector(
-    #     None,
-    #     matcher = BoolOutputMultimatcher([
-    #         (r'fastq\.gz', 0),
-    #         (r'Final\.vcf', 0),
-    #         (r'\.csv', 0),
-    #         (r'\.bam$', 0)
-    #         ]),
-    #     keep_empty_dirs=False)
-
-    # lower_src_2 = SingleRootCollector(
-    #     None,
-    #     matcher = BoolOutputMultimatcher([r'hs_metrics', r'HS_Report\.html']),
-    #     keep_empty_dirs=False)
-
-    # sorter = ReSorter(GroupSearcher(r'_(\d+)', 1), int)
-
-    # upper_siw = ChangesWatcher(upper_src, sorter=sorter,
-    #                                     changes_formatter=ChangesFactory.dict_collection,
-    #                                     keep_empty_dirs=True)
-    # recursive_siw = ChangesWatcher(lower_src, keep_empty_dirs=False,
-    #                                         changes_formatter=ChangesFactory.dict_collection)
-
-
-    # rec_siw_2 = ChangesWatcher(lower_src_2, keep_empty_dirs=False,
-    #                                         changes_formatter=ChangesFactory.dict_collection)
-
-    # monitor_manager.add_monitor(upper_siw, CW_BACKUP_FILE, timeout =5, reindex_timeout=10)
-    # monitor_manager.add_coworker(upper_siw, recursive_siw)
-    # monitor_manager.add_coworker(upper_siw, rec_siw_2)
-    # monitor_manager.start()

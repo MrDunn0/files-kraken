@@ -1,12 +1,14 @@
 import pytest
 import pyfakefs
 import os
-from src.database import JsonDatabse, DatabaseManager, serialization
+from src.database import JsonDatabse
+
 
 @pytest.fixture(scope='class')
 def db(fs_module):
     os.mkdir('/fs')
     return JsonDatabse('/fs/db.json')
+
 
 @pytest.fixture()
 def blueprint():
@@ -29,11 +31,11 @@ class TestJsonDatabase:
 
     def test_all(self, db: JsonDatabse, blueprint: dict[str, int | str | float]):
         second_bp = {
-        'blueprint': 'TestBlueprint',
-        'value': 99,
-        'description': 'Second blueprint for tests',
-        'coverage': 2,
-        'id': 'second_blueprint'
+            'blueprint': 'TestBlueprint',
+            'value': 99,
+            'description': 'Second blueprint for tests',
+            'coverage': 2,
+            'id': 'second_blueprint'
         }
         db.add_blueprint(second_bp)
         all = db.all()
@@ -49,4 +51,3 @@ class TestJsonDatabase:
         assert db.get_blueprint(name='TestBlueprint', id='test_blueprint')
         db.remove_blueprint(name='TestBlueprint', id='test_blueprint')
         assert db.get_blueprint(name='TestBlueprint', id='test_blueprint') == []
-

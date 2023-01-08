@@ -1,6 +1,5 @@
 import pytest
 import pathlib
-import os
 from typing import List
 
 from src.fields import FieldsTransformer, NoUpdate
@@ -31,7 +30,6 @@ def pathlib_old_file():
     return pathlib.Path('test/Tests.pathlib_test_old.txt').absolute()
 
 
-
 STRLIST_NEW_VALUE_1 = 'new_value_1'
 STRLIST_NEW_VALUE_2 = 'new_value_2'
 STRLIST_NEW_VALUE_3 = 'new_value_3'
@@ -54,7 +52,7 @@ strlist_old_2 = [
 strlist_new_2_old_2_created = [
     STRLIST_OLD_VALUE_1, STRLIST_OLD_VALUE_2,
     STRLIST_OLD_VALUE_3, STRLIST_NEW_VALUE_1,
-    STRLIST_NEW_VALUE_2, STRLIST_NEW_VALUE_3,STRLIST_NEW_VALUE_4]
+    STRLIST_NEW_VALUE_2, STRLIST_NEW_VALUE_3, STRLIST_NEW_VALUE_4]
 strlist_new_3_old_1_deleted = [STRLIST_OLD_VALUE_3]
 
 
@@ -88,7 +86,7 @@ class TestFieldsTransformer:
         assert FieldsTransformer.update(
             str, None, None, mode='deleted') is None
 
-    def test_str_to_from_db(str_test_match:str):
+    def test_str_to_from_db(str_test_match: str):
         for value in [None, str_test_match]:
             assert FieldsTransformer.to_db(str, value) == value
             assert FieldsTransformer.from_db(str, value) == value
@@ -96,7 +94,7 @@ class TestFieldsTransformer:
     def test_path_after_match(self, pathlib_new_file: pathlib.Path):
         assert FieldsTransformer.after_match(
             pathlib.Path, pathlib_new_file, 'pathlib_test_new') == pathlib_new_file
-    
+
     def test_path_update(
             self,
             pathlib_new_file: pathlib.Path,
@@ -106,7 +104,7 @@ class TestFieldsTransformer:
         with pytest.raises(ValueError):
             FieldsTransformer.update(
                 pathlib.Path, pathlib_old_file, pathlib_new_file, mode='created')
-        
+
         # Deleted
         # Non equal new_value and old_value when old value is None
         for value in [None, pathlib_new_file]:

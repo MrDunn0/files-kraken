@@ -2,17 +2,14 @@ import pathlib
 from dataclasses import dataclass, fields
 from collections import namedtuple
 
-from typing import List, Dict, NamedTuple, Any
-from webbrowser import get
-
-from tinydb import Storage
+from typing import Dict, NamedTuple, Any
 
 # FilesKraken modules
 from blueprint import DataBlueprint
-from fields import FieldsTransformer, ParserField, NoUpdate
+from fields import FieldsTransformer, NoUpdate
 from retools import SchemeMatcher
 from krakens_nest import Kraken
-from database import DatabaseManager, JsonDatabse, serialization
+from database import DatabaseManager
 from info import FileChangesInfo
 
 
@@ -44,17 +41,30 @@ class BlueprintsDBUpdater:
                     self.db_manager.add_blueprint(entry)
                 else:
                     if info.updates:
-                        self.db_manager.update_blueprint(bp.name, id, info.updates)
+                        formatted_updates = self.old_structure_updates_to_db(
+                            structure_info.structure, info.updates
+                        )
+                        self.db_manager.update_blueprint(bp.name, id, formatted_updates)
 
     @staticmethod
     def entry_from_structure(structure: DataBlueprint, id) -> Dict[str, Any]:
         entry = {'blueprint': structure.name, 'id': id}
         for field in fields(structure):
             value = getattr(structure, field.name)
-            if field.type == ParserField:
+            if field.type.__name__ == 'ParserField':
                 value = value.value
             entry[field.name] = FieldsTransformer.to_db(field.type, value)
         return entry
+
+    @staticmethod
+    def old_structure_updates_to_db(structure: DataBlueprint, updates: dict):
+        '''Formats old structure updates for db'''
+        formatted_updates = {}
+        for field, value in updates.items():
+            field_type = structure.get_field_type(field)
+            formatted_updates[field] = FieldsTransformer.to_db(
+                field_type, value)
+        return formatted_updates
 
 
 @dataclass
@@ -70,6 +80,7 @@ class StructureInfo:
     structure: DataBlueprint
     is_new: bool = True
     scheme_matcher = None
+
     def __post_init__(self):
         if hasattr(self.structure, 'match_scheme'):
             self.scheme_matcher = SchemeMatcher(self.structure.match_scheme)
@@ -77,32 +88,40 @@ class StructureInfo:
 
 class BlueprintBuilder:
     _StructureIdInfo = namedtuple('StructureIdInfo', 'structure_info updates')
-    def __init__(self, kraken: Kraken,
-                    db_manager: DatabaseManager,
-                    db_updater: BlueprintsDBUpdater):
+
+    def __init__(
+            self, kraken: Kraken,
+            db_manager: DatabaseManager,
+            db_updater: BlueprintsDBUpdater,
+            blueprints: list[DataBlueprint] | None = None):
         self.kraken = kraken
         self.db_manager = db_manager
         self.db_updater = db_updater
-        self.blueprints = {bp: BlueprintInfo(bp) for bp in DataBlueprint.__subclasses__()}
+        self.blueprints = {bp: BlueprintInfo(bp) for bp in blueprints} if blueprints else {}
         self.structures = {bp: {} for bp in self.blueprints}
 
         self.kraken.events.append(self.listen)
+
+    # All methods hardcoded for dict_collection ChangesFactory format
 
     def listen(self, info):
         if isinstance(info, FileChangesInfo):
             print(f'Data organizer has recieved changes: {info.changes}')
             self.build(info.changes)
 
-    # All methods hardcoded for dict_collection ChangesFactory format
+    def register_blueprint(self, blueprint: DataBlueprint):
+        self.blueprints[blueprint] = BlueprintInfo(blueprint)
+        self.structures[blueprint] = {}
 
     def build(self, data: NamedTuple):
         for file in data.created:
             self._process_file(file, 'created')
         for file in data.deleted:
-            self._process_file(file,'deleted')
+            self._process_file(file, 'deleted')
 
         self.update_parser_fields()
 
+        print(self.structures)
         self.db_updater.update(self.structures)
         # Delete all builded structures
         self.clear_structures()
@@ -115,8 +134,8 @@ class BlueprintBuilder:
             # At this step scheme_matcher matches only required fields as set in BlueprintInfo
             # Required fields must be of type str
             match = bp_info.scheme_matcher.match(file.name)
-            if len(match) == len(bp.required_fields): # all required fields found
-                structure_id = '__'.join(match.values()) # required fields combination
+            if len(match) == len(bp.required_fields):  # All required fields found
+                structure_id = '__'.join(match.values())  # Required fields combination
                 id_info = structures.get(structure_id)
                 structure_info = id_info.structure_info if id_info else None
                 if not structure_info:
@@ -137,9 +156,13 @@ class BlueprintBuilder:
                     optional_match = structure_info.scheme_matcher.match(file.name)
                     if optional_match:
                         # After match formatting
-                        formatted_fields = self.format_fields(structure_info.structure, file, optional_match)
+                        formatted_fields = self.format_fields(
+                            structure_info.structure,
+                            file,
+                            optional_match)
                         # Compare current field values with new ones
-                        updates = self.get_updates(structure_info.structure, formatted_fields, mode)
+                        updates = self.get_updates(
+                            structure_info.structure, formatted_fields, mode)
                         if not structure_info.is_new:
                             # Set updates for current structure_id
                             self.set_updates(bp, structure_id, updates)
@@ -163,9 +186,8 @@ class BlueprintBuilder:
                                                                     field_default=field_default)
         return formatted_fields
 
-
     @staticmethod
-    def get_updates(structure, matched_fields, mode):
+    def get_updates(structure: DataBlueprint, matched_fields, mode):
         updates = {}
         for field, new_value in matched_fields.items():
             f_type = structure.get_field_type(field)
@@ -175,28 +197,28 @@ class BlueprintBuilder:
                 updates[field] = update
         return updates
 
-    def set_updates(self, bp, id, updates):
+    def set_updates(self, bp: DataBlueprint, id: str, updates: dict):
         self.structures[bp][id].updates.update(updates)
 
     @staticmethod
-    def set_fields(structure: DataBlueprint, fields) -> None:
+    def set_fields(structure: DataBlueprint, fields: dict) -> None:
         for field, new_value in fields.items():
             setattr(structure, field, new_value)
 
     def update_parser_fields(self) -> None:
-        '''
-        Updates ParserFields with dependent fields in all structures
-        '''
+        '''Updates ParserFields with dependent fields in all structures'''
         for bp, structures in self.structures.items():
             for id, info in structures.items():
                 structure = info.structure_info.structure
                 updates = {}
-                parser_fields = [getattr(structure, field.name)
-                                    for field in fields(structure)
-                                    if structure.get_field_type(field.name) == ParserField]
+                parser_fields = [
+                    getattr(structure, field.name)
+                    for field in fields(structure)
+                    if structure.get_field_type(field.name).__name__ == 'ParserField']
                 # Select only pf with dependent_fields and without value set
-                parser_fields = [pf for pf in parser_fields
-                                if pf.dependent_fields and not pf.value]
+                parser_fields = [
+                    pf for pf in parser_fields
+                    if pf.dependent_fields and not pf.value]
                 for pf in parser_fields:
                     if structure.fields_are_set(*pf.dependent_fields):
                         args = [getattr(structure, f) for f in pf.dependent_fields]
@@ -208,63 +230,3 @@ class BlueprintBuilder:
 
     def clear_structures(self):
         self.structures = {bp: {} for bp in self.blueprints}
-
-
-if __name__ == '__main__':
-    db = JsonDatabse('/mnt/c/Users/misha/Desktop/materials/Programming/files-kraken/backups/db.json', storage=serialization)
-    # blueprints = db.table('blueprints')
-    kraken = Kraken()
-    db_manager = DatabaseManager(db)
-    db_updater = BlueprintsDBUpdater(db_manager)
-    bb = BlueprintBuilder(kraken, db_manager, db_updater)
-
-    t1 = 'other_154.sample_NG067.lane_69.R1.fastq.gz'
-    t2 = 'wgs_154.sample_NG067.lane_69.R1.fastq.gz'
-    t3 = 'wes_154.sample_NG067.lane_69.R1.fastq.gz'
-    t4 = 'ces_154.sample_NG067.lane_69.R1.fastq.gz'
-    t5 = 'ces_154.sample_NG067.dedup.bam'
-
-
-    Changes = namedtuple('Changes', 'created deleted')
-    changes = Changes([t1, t2, t3, t4, t5], [])
-    # processed = bb.build(changes)
-    # db.insert(processed)
-    # print(db.all())
-
-    changes_2 = Changes([
-        'other_100.sample_123456.lane_1.R1.fastq.gz',
-        'other_100.sample_123456.lane_1.R2.fastq.gz',
-        'other_100.sample_123456.lane_2.R2.fastq.gz',
-        'other_100.sample_123456.dedup.bam',
-        'other_100.sample_123456.realigned.bam',
-        'other_100.sample_123456.recal.bam',
-        'other_100.123456.vcf',
-        'other_100.sample_123456.csv',
-
-        'other_120.sample_111111.lane_1.R1.fastq.gz',
-        'other_120.sample_111111.lane_1.R2.fastq.gz',
-        'other_120.sample_111111.lane_2.R2.fastq.gz',
-        'other_120.sample_111111.dedup.bam',
-        'other_120.sample_111111.realigned.bam',
-        'other_120.sample_111111.recal.bam',
-        'other_120.111111.vcf',
-        'other_120.sample_111111.xslx',
-    ], ['other_120.111111.vcf'])
-    # bb.build(changes_2)
-    
-    changes_3 = Changes([
-    ], [
-        'other_120.sample_111111.lane_1.R1.fastq.gz',
-        'other_120.sample_111111.lane_1.R2.fastq.gz',
-        'other_120.sample_111111.lane_2.R2.fastq.gz'
-    ])
-
-    changes_4 = Changes(['other_120.sample_111111.xlsx'], [])
-
-    changes_5 = Changes([
-        'ces_120.SBR1442.csv',
-        'ces_120.SBR1442.xlsx',
-        'ces_120.Final.vcf',
-        'ces_120.SBR1442.vcf'
-    ], [])
-    print(bb.build(changes_5))

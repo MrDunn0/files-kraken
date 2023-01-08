@@ -46,16 +46,16 @@ class MultimatchExecutor(Multimatcher):
         matches = []
         for entry in patterns:
             match entry:
-                case str():  # use re.match on entry
+                case str():  # Use re.match on entry
                     pattern = entry
                     matches.append(ReExecutor.fullmatch(pattern, text))
-                case tuple(): # two cases
+                case tuple():  # Two cases
                     match entry[1]:
-                        case int(): # 1.Entry is a tuple of single pattern and group
+                        case int():  # 1.Entry is a tuple of single pattern and group
                             pattern = entry[0]
                             group = entry[1]
                             matches.append(ReExecutor.search(pattern, text, group=group))
-                        case _: # 2.Entry is a tuple of several patterns
+                        case _:  # 2.Entry is a tuple of several patterns
                             sub_result = []
                             for sub_pattern in entry:
                                 match sub_pattern:
@@ -73,7 +73,7 @@ class MultimatchExecutor(Multimatcher):
         return self.multimatch(self.patterns, text)
 
 
-class BoolOutputMultimatcher(MultimatchExecutor): # I have big problems with naming...
+class BoolOutputMultimatcher(MultimatchExecutor):  # I have big problems with naming...
     def __init__(self, patterns: list[str | tuple], mode='any', exclude=None):
         super().__init__(patterns)
         self.mode = mode
@@ -89,7 +89,8 @@ class BoolOutputMultimatcher(MultimatchExecutor): # I have big problems with nam
         for match in matches:
             if isinstance(match, list):
                 bools.append(all(match))
-            else: bools.append(match)
+            else:
+                bools.append(match)
         if self.mode == 'any':
             return any(bools)
         elif self.mode == 'cons':
@@ -126,7 +127,8 @@ class SchemeMatcher(Multimatcher):
                                         match = ReExecutor.fullmatch(sub_pattern, text)
                                 if match:
                                     result[key] = match
-                                    # Now there is no need to have two matches of text for the same field
+                                    # Now there is no need to have
+                                    # two matches of text for the same field
                                     break
                 case _:
                     pattern = value
@@ -145,47 +147,10 @@ class ReSorter:
         self.func = func if func else self._return_self
 
     def sort(self, items):
-        return sorted([i for i in items],
-                    key=lambda i: self.func(self.searcher.search(i)))
+        return sorted(
+            [i for i in items],
+            key=lambda i: self.func(self.searcher.search(i)))
 
     @staticmethod
     def _return_self(value):
         return value
-
-
-if __name__ == '__main__':
-    # t1 = 'wgs_1'
-    t2 = '123_ABC_lalala'
-    # am = AnyMatcher(['^ces_\d+', '^wes_\d+', '^other_\d+', '^wgs_\d+'])
-    # cm = ConseqMatcher(['\d+', 'ABC', 'lala'])
-    
-    # print(am.match(t1))
-    # print(cm.match(t2))
-    
-    # gs = GroupSearcher(r'_(\d+)', 1)
-    # rs = ReSorter(gs, int)
-    # print(rs.sort(['wes_123', 'wes_10', 'wes_1', 'wes_3', 'wes_2']))
-
-    me = MultimatchExecutor([('\d+', ('ABC', 0), ('lala', 0))])
-    print(me.match(t2))
-
-    t3 = '_ABC_balbalbal'
-    am = BoolOutputMultimatcher([('\d+', ('ABC', 0), ('lala', 0)), ('ABC', 0)])
-    print(am.match(t3))
-    
-    required_fields = {'run': (r'^other|ces|wes|wgs_\d+', 0),
-                                'sample': (r'sample_S?(\w+)', 1)}
-
-    # sm = SchemeMatcher(required_fields)
-    # print(sm.match('other_153.sample_123456.fastq.gz'))
-    optional_fields = {
-        'fastqs': re.compile('^\\w+\\.sample_NG067\\.lane_\\d+\\.R[1-2].fastq.gz'),
-        'bams': re.compile('^\\w+\\.sample_NG067\\.(dedup|recal|realigned)\\.bam'),
-        'vcf': re.compile('^\\w+\\.SNG067\\.vcf'),
-        'csv': re.compile('^\\w+\\.sample_SNG067\\.csv'),
-        'xlsx': re.compile('^\\w+\\.sample_SNG067\\.xlsx'),
-        'metrics': re.compile('^\\w+\\.sample_NG067\\.HS\\.metrics\\.tsv')}
-    sm = SchemeMatcher(optional_fields)
-    print(sm.match('ces_154.sample_NG067.dedup.bam'))
-    print(ReExecutor.fullmatch(r'(?:other|ces|wes|wgs|)_\d+\.(AF|GF|S\d[0-1]?)\.vcf$', 'ces_3000.GF.vcf'))
-    print(re.fullmatch(r'(?:other|ces|wes|wgs|)_\d+\.(AF|GF|S\d[0-1]?)\.vcf$', 'ces_3000.GF.vcf'))

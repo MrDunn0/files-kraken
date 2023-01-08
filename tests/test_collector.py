@@ -1,19 +1,31 @@
 import pathlib
 from src.collector import SingleRootCollector
 from src.retools import BoolOutputMultimatcher
-from tests_data.collector_collections import *
+from tests_data.collector_collections import (
+    DEFAULT_MATCH_COLLECTION,
+    COLLECTOR_ALL_FILES,
+    MATCH_DIRS_COLLECTION,
+    ZERO_DEPTH_COLLECTION,
+    DATA_DEPTH_COLLECTION,
+    MATCH_DIRS_NO_EMPTY_COLLECTION
+)
 
 TEST_DATA_ROOT = pathlib.Path('tests/tests_data/collector_path')
-TEST_DATA_PATTERNS = [r'run_\d+', r'.+\.fastq.gz', r'.+\.bam', r'.+metrics.txt', r'.+results.txt', 'bams', 'input', 'results']
+TEST_DATA_PATTERNS = [
+    r'run_\d+', r'.+\.fastq.gz', r'.+\.bam',
+    r'.+metrics.txt', r'.+results.txt', 'bams', 'input', 'results']
 
 
 def create_BOM(*args, **kwargs):
+    '''Creates BoolOutputMultimatcher from provided arguments'''
     return BoolOutputMultimatcher(*args, **kwargs)
 
 
 test_matcher = create_BOM(TEST_DATA_PATTERNS)
 
+
 def create_SRC(*args, **kwargs):
+    '''Creates SingleRootCollector with provided arguments'''
     return SingleRootCollector(*args, **kwargs)
 
 
@@ -61,6 +73,8 @@ def test_larger_depth():
 
 def test_no_empty_dirs():
     '''Empty directories not included even if it matched'''
-    src = create_SRC(root=TEST_DATA_ROOT, match_dirs=True, matcher=test_matcher, keep_empty_dirs=False)
+    src = create_SRC(
+        root=TEST_DATA_ROOT, match_dirs=True,
+        matcher=test_matcher, keep_empty_dirs=False)
     collected = src.collect()
     assert collected == MATCH_DIRS_NO_EMPTY_COLLECTION

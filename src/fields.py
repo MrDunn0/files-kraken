@@ -1,15 +1,20 @@
-from multiprocessing.sharedctypes import Value
 import pathlib
-
 from dataclasses import dataclass
 from typing import List, Any, Optional, Pattern, Union
 
 # FilesKraken modules
-from blueprint import DataParser
 from functions import get_all_subclasses
+
+
+class DataParser:
+    @staticmethod
+    def parse(*args, **kwargs):
+        pass
+
 
 class NoUpdate:
     pass
+
 
 @dataclass
 class ParserField:
@@ -29,13 +34,14 @@ class ParserField:
             )
 
     def __bool__(self):
-        return not self.value is None
+        return self.value is not None
 
     def __eq__(self, other):
         return self.value == other.value
 
     def parse_value(self, *args, **kwargs):
         self.value = self.parser.parse(*args, **kwargs)
+
 
 class FieldBehavior:
     field_type = None
@@ -61,7 +67,7 @@ class StrFieldBehavior(FieldBehavior):
     field_type = str
 
     @staticmethod
-    def after_match(file: pathlib.Path, match_value:str, **kwargs):
+    def after_match(file: pathlib.Path, match_value: str, **kwargs):
         return match_value
 
     @staticmethod
@@ -74,15 +80,17 @@ class StrFieldBehavior(FieldBehavior):
             elif new_value == old_value:
                 return NoUpdate
             elif new_value != old_value:
-                raise ValueError('Blueprint from DB has a set field value while new value ' +
-                                'for that field has been reported by monitoring module.\n' +
-                                f'\tOld value: {old_value}\n\tNew value: {new_value}\n\tMode: {mode}')
-        elif mode =='deleted':
+                raise ValueError(
+                    'Blueprint from DB has a set field value while new value ' +
+                    'for that field has been reported by monitoring module.\n' +
+                    f'\tOld value: {old_value}\n\tNew value: {new_value}\n\tMode: {mode}')
+        elif mode == 'deleted':
             if new_value == old_value:
                 return None
             else:
-                raise ValueError('Deleted file field value is not equal to already set value\n' +
-                                f'\tOld value: {old_value}\n\tNew value: {new_value}\n\tMode: {mode}')
+                raise ValueError(
+                    'Deleted file field value is not equal to already set value\n' +
+                    f'\tOld value: {old_value}\n\tNew value: {new_value}\n\tMode: {mode}')
 
     @staticmethod
     def to_db(value: Optional[str]) -> Optional[str]:
@@ -122,7 +130,7 @@ class StrListFieldBehavior(FieldBehavior):
             if not new_value or (not old_value and not new_value):
                 return NoUpdate
             elif not old_value:
-                return new_value # New value is not empty
+                return new_value  # New value is not empty
             elif new_value == old_value:
                 return NoUpdate
             elif new_value != old_value:
@@ -130,7 +138,7 @@ class StrListFieldBehavior(FieldBehavior):
                 updated_list.extend(val for val in new_value if val not in updated_list)
                 return updated_list
 
-        elif mode =='deleted':
+        elif mode == 'deleted':
             if new_value == old_value:
                 return None
             else:
@@ -162,7 +170,7 @@ class PathlibListFieldBehavior(StrListFieldBehavior):
 
 
 class ParserFieldBehavior(FieldBehavior):
-    field_type = ParserField
+    field_type = ['ParserField', ParserField]
 
     @staticmethod
     def after_match(file: pathlib.Path, match_value: str, **kwargs):
@@ -182,11 +190,12 @@ class ParserFieldBehavior(FieldBehavior):
                 return NoUpdate
             elif new_value != old_value:
                 name = new_value.name
-                print(f'WARNING: new value in ParserField {name} while old value is set' +
+                print(
+                    f'WARNING: new value in ParserField {name} while old value is set' +
                     f'\tOld value: {old_value}\n\tNew value: {new_value}\n\tMode: {mode}')
                 return new_value
 
-        elif mode =='deleted':
+        elif mode == 'deleted':
             # I don't want to change parsed values when file is deleted
             if new_value == old_value:
                 return NoUpdate
@@ -204,172 +213,44 @@ class ParserFieldBehavior(FieldBehavior):
 
 class FieldsTransformer:
 
-    type_behavior_mapping = {
-        cls.field_type: cls
-        for cls in get_all_subclasses(FieldBehavior)
-    }
+    type_behavior_mapping = {}
+    for cls in get_all_subclasses(FieldBehavior):
+        if isinstance(cls.field_type, list):
+            for field_type in cls.field_type:
+                type_behavior_mapping[field_type] = cls
+        else:
+            type_behavior_mapping[cls.field_type] = cls
 
     @staticmethod
     def after_match(field_type,
                     file: pathlib.Path,
                     match_value: str, **kwargs) -> Optional[Union[pathlib.Path, str]]:
-        field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        try:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        except KeyError:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type.__name__]
         return field_behavior.after_match(file, match_value, **kwargs)
 
     @staticmethod
     def update(field_type, old_value: Any, new_value: Any, mode) -> Any:
-        field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        try:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        except KeyError:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type.__name__]
         return field_behavior.update(old_value, new_value, mode)
 
     @staticmethod
     def to_db(field_type, value: Any) -> Any:
-        field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        try:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        except KeyError:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type.__name__]
         return field_behavior.to_db(value)
 
     @staticmethod
     def from_db(field_type, value: Any) -> Any:
-        field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        try:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type]
+        except KeyError:
+            field_behavior = FieldsTransformer.type_behavior_mapping[field_type.__name__]
         return field_behavior.from_db(value)
-
-
-
-
-if __name__ == '__main__':
-    ft = FieldsTransformer
-
-    # TESTING STR
-    str_test_file = pathlib.Path('tests/Tests.str_test_new.txt')
-    str_test_match = 'str_test_new'
-    str_test_old_value = 'str_test_old'
-    
-    # 1. After match
-    assert FieldsTransformer.after_match(str, str_test_file, str_test_match) == str_test_match
-    # 2. Updates
-    # 2.1 Created
-    try:
-        FieldsTransformer.update(str, str_test_match, str_test_old_value, mode='created')
-    except Exception as e:
-        assert isinstance(e, ValueError)
-    else:
-        raise AssertionError('No ValueError raised in str update test')
-    
-    # 2.2 Deleted
-    # Non equal new_value and old_value when old_value is set
-    for value in [None, str_test_match]:   
-        try:
-            FieldsTransformer.update(str, value, str_test_old_value, mode='deleted')
-        except Exception as e:
-            assert isinstance(e, ValueError)
-        else:
-            raise AssertionError('No ValueError raised in str update test')
-
-    # Non equal new_value and old_value when old value is None
-    try:
-        FieldsTransformer.update(str, str_test_match, None, 'deleted')
-    except Exception as e:
-        assert isinstance(e, ValueError)
-    else:
-        raise AssertionError('No ValueError raised in str update test')
-
-    # Equal values when old_value is set
-    assert FieldsTransformer.update(str, str_test_old_value, str_test_old_value, mode='deleted') is None
-    # Equal values when both None
-    assert FieldsTransformer.update(str, None, None, mode='deleted') is None
-
-    # 3. To DB 
-    # 4. From DB
-    for value in [None, str_test_match]:
-        assert FieldsTransformer.to_db(str, value) == value
-        assert FieldsTransformer.from_db(str, value) == value
-
-
-    # TESTING pathlib.Path
-    pathlib_new_file = pathlib.Path('test/Tests.pathlib_test_new.txt').absolute()
-    pathlib_old_file = pathlib.Path('test/Tests.pathlib_test_old.txt').absolute()
-    # 1. After match
-    assert FieldsTransformer.after_match(pathlib.Path, pathlib_new_file, 'pathlib_test_new') == pathlib_new_file
-    # 2. Update
-    # 2.1 Created
-    try:
-        FieldsTransformer.update(pathlib.Path,pathlib_old_file ,pathlib_new_file , mode='created')
-    except Exception as e:
-        assert isinstance(e, ValueError)
-    else:
-        raise AssertionError('No ValueError raised in pathlb.Path update test')
-    
-    # 2.2 Deleted
-    # Non equal new_value and old_value when old_value is set
-    for value in [None, pathlib_new_file]:
-        try:
-            FieldsTransformer.update(pathlib.Path, pathlib_old_file, value, mode='deleted')
-        except Exception as e:
-            assert isinstance(e, ValueError)
-        else:
-            raise AssertionError('No ValueError raised in pathlib.Path update test')
-
-    # Non equal new_value and old_value when old value is None
-    try:
-        FieldsTransformer.update(pathlib.Path, None, pathlib_new_file, 'deleted')
-    except Exception as e:
-        assert isinstance(e, ValueError)
-    else:
-        raise AssertionError('No ValueError raised in str update test')
-
-    # Equal values when old_value is set
-    assert FieldsTransformer.update(pathlib.Path, pathlib_old_file, pathlib_old_file, mode='deleted') is None
-    # Equal values when both None
-    assert FieldsTransformer.update(pathlib.Path, None, None, mode='deleted') is None
-
-
-    # 3. To DB
-    assert FieldsTransformer.to_db(pathlib.Path, None) is None
-    assert FieldsTransformer.to_db(pathlib.Path, pathlib_new_file) == str(pathlib_new_file.absolute())
-    
-    # 4. From DB
-    assert FieldsTransformer.from_db(pathlib.Path, None) is None
-    assert FieldsTransformer.from_db(pathlib.Path, str(pathlib_new_file.absolute())) == pathlib_new_file
-
-
-    # StrList TESTING
-    STRLIST_NEW_VALUE_1 = 'new_value_1'
-    STRLIST_NEW_VALUE_2 = 'new_value_2'
-    STRLIST_NEW_VALUE_3 = 'new_value_3'
-    STRLIST_NEW_VALUE_4 = 'new_value_4'
-
-    STRLIST_OLD_VALUE_1 = 'old_value_1'
-    STRLIST_OLD_VALUE_2 = 'old_value_2'
-    STRLIST_OLD_VALUE_3 = 'old_value_3'
-
-    strlist_new_1 = [STRLIST_NEW_VALUE_1, STRLIST_NEW_VALUE_2, STRLIST_NEW_VALUE_3]
-    strlist_new_2 = [STRLIST_NEW_VALUE_1, STRLIST_NEW_VALUE_2, STRLIST_NEW_VALUE_3, STRLIST_NEW_VALUE_4]
-    strlist_new_3 = [STRLIST_OLD_VALUE_1, STRLIST_OLD_VALUE_2]
-
-    strlist_old_1 = [STRLIST_OLD_VALUE_1, STRLIST_OLD_VALUE_2, STRLIST_OLD_VALUE_3]
-    strlist_old_2 = [STRLIST_OLD_VALUE_1, STRLIST_OLD_VALUE_2, STRLIST_OLD_VALUE_3, STRLIST_NEW_VALUE_1]
-    strlist_new_2_old_2_created = [STRLIST_OLD_VALUE_1, STRLIST_OLD_VALUE_2, STRLIST_OLD_VALUE_3, STRLIST_NEW_VALUE_1,
-                                    STRLIST_NEW_VALUE_2, STRLIST_NEW_VALUE_3, STRLIST_NEW_VALUE_4]
-    strlist_new_3_old_1_deleted = [STRLIST_OLD_VALUE_3]
-    # 1. After Match - match is always single str
-    assert FieldsTransformer.after_match(List[str], pathlib_new_file, STRLIST_NEW_VALUE_1) == STRLIST_NEW_VALUE_1
-    # 2. Update
-    # 2.1 Created
-    assert FieldsTransformer.update(List[str], strlist_old_1, None, 'created') == strlist_old_1
-    assert FieldsTransformer.update(List[str], None, strlist_new_1, 'created') == strlist_new_1
-    assert FieldsTransformer.update(List[str], None, None, 'created') is None
-    assert FieldsTransformer.update(List[str], strlist_old_1, strlist_new_1, 'created') == [*strlist_old_1, *strlist_new_1]
-    # Only unique elements in combined list
-    assert FieldsTransformer.update(List[str], strlist_old_2, strlist_new_2, 'created') == strlist_new_2_old_2_created
-    # 2.2 Deleted
-    assert FieldsTransformer.update(List[str], strlist_old_1, strlist_new_3, 'deleted') == strlist_new_3_old_1_deleted
-    assert FieldsTransformer.update(List[str], strlist_new_1, strlist_new_1, 'deleted') is None
-
-    # 3. To DB
-    assert FieldsTransformer.to_db(List[str], strlist_new_1) == strlist_new_1
-    assert FieldsTransformer.to_db(List[str], None) is None
-    # 4. From DB
-    assert FieldsTransformer.from_db(List[str], strlist_new_1) == strlist_new_1
-    assert FieldsTransformer.from_db(List[str], None) is None
-
-
-    # PatlibList TESTING
-    # 

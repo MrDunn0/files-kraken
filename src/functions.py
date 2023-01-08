@@ -1,6 +1,7 @@
 import pathlib
 from os import makedirs
 
+
 def get_all_subclasses(cls):
     all_subclasses = []
 
@@ -18,4 +19,3 @@ def create_dirs(*dir_paths: pathlib) -> None:
 
 def get_module_dir():
     return pathlib.Path(__file__).parent.absolute()
-

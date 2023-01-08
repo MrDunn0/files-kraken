@@ -8,7 +8,6 @@ from tinydb_serialization.serializers import DateTimeSerializer
 serialization = SerializationMiddleware(JSONStorage)
 serialization.register_serializer(DateTimeSerializer(), 'TinyDate')
 
-# FilesKraken modules
 
 class Database(ABC):
     @abstractmethod
@@ -58,7 +57,7 @@ class DatabaseManager:
 
     def get_blueprint(self, name, id):
         query = self.db.get_blueprint(name, id)
-        if query: 
+        if query:
             return query[0]
 
     def update_blueprint(self, name, id, updates):
@@ -75,19 +74,3 @@ class DatabaseManager:
         # BlueprintCreatedInfo
         # BlueprintChangedInfo
         # DeleteBlueprintInfo
-
-
-if __name__ == '__main__':
-    from datetime import datetime
-    db = JsonDatabse('backups/db.json', storage=serialization)
-    db_manager = DatabaseManager(db)
-    db_manager.add_blueprint({'blueprint':'SampleInfoBlueprint', 'id': 'other_100__123456'})
-    db_manager.update_blueprint('SampleInfoBlueprint', 'other_100__123456', {'aboba': 'cringe', 'updated': datetime.now()})
-    # print(db_manager.get_blueprint('SampleInfoBlueprint', 'other_100__123456'))
-    # db_manager.remove_blueprint('SampleInfoBlueprint', 'other_120__111111')
-    print(db_manager.get_all())
-    t1 = db_manager.get_blueprint('SampleInfoBlueprint', 'other_100__123456')
-    print(t1)
-    print(t1['updated'])
-    
-

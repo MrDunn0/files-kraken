@@ -25,7 +25,7 @@ class TestDictCollection:
         return DictCollection({
                 str(pathlib.Path('tests_data/collector_path')): {
                     'run_1': {
-                        'input':{
+                        'input': {
                             'sample_1.fastq.gz': None
                         }},
                     'run_2': {
@@ -49,7 +49,7 @@ class TestDictCollection:
             },
             'dir4': {
                 'file5': None,
-                'dir6': {} }
+                'dir6': {}}
             }) == {
             'dir1': {"file3"},
             'dir2': {
@@ -62,7 +62,7 @@ class TestDictCollection:
             },
             'dir4': {
                 'file5': None,
-                'dir6': {} }
+                'dir6': {}}
         }
 
     def test_extend_two(self, dc: DictCollection):
@@ -145,7 +145,7 @@ class TestDictCollection:
 
         # Cut to nonempty dir
         assert real_dc.cut_to_key('run_1') == {'run_1': {
-                                                    'input':{
+                                                    'input': {
                                                         'sample_1.fastq.gz': None
                                                     }}}
 

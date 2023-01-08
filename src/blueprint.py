@@ -1,14 +1,11 @@
-import re
-import pathlib
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import ClassVar
-from copy import copy, deepcopy
-from datetime import datetime
+from copy import deepcopy
 
 # FilesKraken modules
 from fields import ParserField, FieldsTransformer
 # It's good idea to create dataclass with constants for blueprints to use it here
+
 
 @dataclass
 class DataBlueprint:
@@ -55,14 +52,13 @@ class DataBlueprint:
             if (field not in required_fields) and (field in annotations):
                 f_type = annotations[field]
                 # Again I need to process ParserField separately...
-                if f_type == ParserField:
+                if f_type.__name__ == 'ParserField':
                     parser_field = deepcopy(getattr(cls, field))
                     # I'm not sure it's okay to change class ParserField like that
                     parser_field.value = value
                     optional_args[field] = parser_field
                     continue
                 optional_args[field] = FieldsTransformer.from_db(f_type, value)
-
         return cls(*required_args, **optional_args)
 
     @classmethod
@@ -76,9 +72,3 @@ class DataBlueprint:
     @property
     def name(cls):
         return cls.__name__
-
-
-class DataParser:
-    @staticmethod
-    def parse(*args, **kwargs):
-        pass
