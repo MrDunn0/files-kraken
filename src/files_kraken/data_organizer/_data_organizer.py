@@ -120,8 +120,6 @@ class BlueprintBuilder:
             self._process_file(file, 'deleted')
 
         self.update_parser_fields()
-
-        print(self.structures)
         self.db_updater.update(self.structures)
         # Delete all builded structures
         self.clear_structures()
@@ -230,3 +228,11 @@ class BlueprintBuilder:
 
     def clear_structures(self):
         self.structures = {bp: {} for bp in self.blueprints}
+
+
+__all__ = [
+    'BlueprintsDBUpdater',
+    'BlueprintInfo',
+    'StructureInfo',
+    'BlueprintBuilder'
+]

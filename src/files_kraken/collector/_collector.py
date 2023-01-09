@@ -115,3 +115,11 @@ class SingleRootCollector(FilesCollector):
                     continue
                 collection[file.name] = None
         return collection
+
+
+__all__ = [
+    'FilesCollection',
+    'DictCollection',
+    'FilesCollector',
+    'SingleRootCollector'
+]

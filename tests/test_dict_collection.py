@@ -1,6 +1,6 @@
 import pytest
 import pathlib
-from src.files_kraken.collector import DictCollection
+from src.files_kraken.collector._collector import DictCollection
 
 
 class TestDictCollection:

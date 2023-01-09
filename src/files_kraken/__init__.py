@@ -1,2 +1,4 @@
-import sys, pathlib
-sys.path.append(str(pathlib.Path(__file__).parent.absolute()))
+import sys as _sys
+import pathlib as _pathlib
+
+_sys.path.append(str(_pathlib.Path(__file__).parent.absolute()))

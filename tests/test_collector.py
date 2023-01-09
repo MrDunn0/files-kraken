@@ -1,5 +1,5 @@
 import pathlib
-from src.files_kraken.collector import SingleRootCollector
+from src.files_kraken.collector._collector import SingleRootCollector
 from src.files_kraken.retools import BoolOutputMultimatcher
 from tests_data.collector_collections import (
     DEFAULT_MATCH_COLLECTION,

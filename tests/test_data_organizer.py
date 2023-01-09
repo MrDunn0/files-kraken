@@ -3,10 +3,10 @@ import pathlib
 from dataclasses import dataclass, field
 from typing import ClassVar, List
 
-from src.files_kraken.blueprint import DataBlueprint
-from src.files_kraken.data_organizer import BlueprintsDBUpdater, BlueprintBuilder
+from src.files_kraken.blueprint._blueprint import DataBlueprint
+from src.files_kraken.data_organizer._data_organizer import BlueprintsDBUpdater, BlueprintBuilder
 from src.files_kraken.database import DatabaseManager
-from src.files_kraken.fields import ParserField, DataParser
+from src.files_kraken.fields._fields import ParserField, DataParser
 from src.files_kraken.krakens_nest import Kraken
 from src.files_kraken.monitoring import Changes
 from test_database import db

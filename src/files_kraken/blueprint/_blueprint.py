@@ -72,3 +72,6 @@ class DataBlueprint:
     @property
     def name(cls):
         return cls.__name__
+
+
+    __all__ = ['DataBlueprint']

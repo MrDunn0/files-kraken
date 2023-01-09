@@ -284,3 +284,13 @@ class MonitorManager:
                         info.last_reindex = time.time()
         now = datetime.now().isoformat(' ', 'seconds')
         print(f'[{now}] Finishing monitoring')
+
+
+__all__ = [
+    'Event',
+    'Changes',
+    'ChangesFactory',
+    'ChangesWatcher',
+    'BackupManager',
+    'MonitorManager'
+    ]
