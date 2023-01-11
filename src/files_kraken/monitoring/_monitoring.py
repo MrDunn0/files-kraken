@@ -14,7 +14,7 @@ from typing import (
 from collector import FilesCollector
 from info import FileChangesInfo
 from krakens_nest import Kraken
-from functions import get_module_dir, create_dirs
+from functions import create_dirs
 
 
 class Event(list):
@@ -160,14 +160,21 @@ class MonitorManager:
         last_reindex: Optional[time.time] = None
         last_run: Optional[time.time] = None
 
-    def __init__(self, backups_dir: pathlib.Path = None, kraken: Kraken = None, exit_file=None):
+    def __init__(
+            self, backups_dir: pathlib.Path = None,
+            kraken: Kraken = None, exit_file=None,
+            exit_time: int = None
+            ):
         self.kraken = kraken
         self.monitors = {}
         self.backup_manager = BackupManager()
-        self.backups_dir = pathlib.Path(backups_dir) \
-            if backups_dir else get_module_dir().parent / 'backups'
+        self.backups_dir = pathlib.Path(backups_dir) if backups_dir \
+            else pathlib.Path('./backups')
         create_dirs(self.backups_dir)
+        self.exit_time = exit_time
         self._exit_file = exit_file
+        if self.exit_time:
+            self._start_time = time.time()
         if exit_file:
             open(exit_file, 'w').close()
 
@@ -202,6 +209,8 @@ class MonitorManager:
             if os.stat(self._exit_file).st_size > 0:
                 os.remove(self._exit_file)
                 return True
+        if self.exit_time:
+            return time.time() - self._start_time > self.exit_time
         return False
 
     @staticmethod

@@ -46,7 +46,7 @@ def kraken() -> Kraken:
 def builder(db, kraken) -> BlueprintBuilder:
     db_manager = DatabaseManager(db)
     db_updater = BlueprintsDBUpdater(db_manager)
-    builder = BlueprintBuilder(kraken, db_manager, db_updater)
+    builder = BlueprintBuilder(db_manager, db_updater, kraken=kraken)
     builder.register_blueprint(SampleBlueprint)
     return builder
 

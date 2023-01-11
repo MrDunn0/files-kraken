@@ -19,7 +19,7 @@ there is only one format of namedtuple with .deleted and .created
 fields. But with each modification in this format we will need to
 rewrite all blueprint stuff.
     Another problem related to the previous one conserns an iterator
-of changes, which I want to be something like adapter, which 
+of changes, which I want to be something like adapter, which
 transforms different changes data formats into uniform signal
 to builder or organizer. The problem can be seen in the example of
 deleted and created changes format. Iterator gets this namedtuple, but
@@ -90,17 +90,18 @@ class BlueprintBuilder:
     _StructureIdInfo = namedtuple('StructureIdInfo', 'structure_info updates')
 
     def __init__(
-            self, kraken: Kraken,
+            self,
             db_manager: DatabaseManager,
             db_updater: BlueprintsDBUpdater,
+            kraken: Kraken = None,
             blueprints: list[DataBlueprint] | None = None):
-        self.kraken = kraken
         self.db_manager = db_manager
         self.db_updater = db_updater
+        self.kraken = kraken
         self.blueprints = {bp: BlueprintInfo(bp) for bp in blueprints} if blueprints else {}
         self.structures = {bp: {} for bp in self.blueprints}
-
-        self.kraken.events.append(self.listen)
+        if self.kraken:
+            self.kraken.events.append(self.listen)
 
     # All methods hardcoded for dict_collection ChangesFactory format
 
@@ -108,6 +109,11 @@ class BlueprintBuilder:
         if isinstance(info, FileChangesInfo):
             print(f'Data organizer has recieved changes: {info.changes}')
             self.build(info.changes)
+
+    def set_kraken(self, kraken: Kraken):
+        '''Allows to set Kraken when object is already instantiated'''
+        self.kraken = kraken
+        self.kraken.events.append(self.listen)
 
     def register_blueprint(self, blueprint: DataBlueprint):
         self.blueprints[blueprint] = BlueprintInfo(blueprint)
@@ -126,12 +132,19 @@ class BlueprintBuilder:
 
     # It will be good to write matched blueprints iterator
     def _process_file(self, file: pathlib.Path, mode: str) -> None:
+        print(f'BlueprintBuilder processing file {file}')
         file = pathlib.Path(file)
         for bp, bp_info in self.blueprints.items():
             structures = self.structures[bp]
             # At this step scheme_matcher matches only required fields as set in BlueprintInfo
             # Required fields must be of type str
             match = bp_info.scheme_matcher.match(file.name)
+
+            # if match:
+            #     print(f'Matched fields: {match}')
+            # else:
+            #     print('No matched fields')
+
             if len(match) == len(bp.required_fields):  # All required fields found
                 structure_id = '__'.join(match.values())  # Required fields combination
                 id_info = structures.get(structure_id)
@@ -141,12 +154,14 @@ class BlueprintBuilder:
                     db_entry = self.db_manager.get_blueprint(bp.name, structure_id)
                     if db_entry:
                         structure_info = StructureInfo(bp.create(**db_entry), is_new=False)
+                        # print('Structure from DB', structure_info)
                     else:
                         # Here we initialize an instance of bp with required args
                         # and further name it a structure. It's not necessary to format
                         # required fields after match because they can only be of str type
                         # and matcher always returns str
                         structure_info = StructureInfo(bp.create(**match))
+                        # print('New structure', structure_info)
                 structures[structure_id] = self._StructureIdInfo(structure_info, {})
                 # We need to check also optional fields on current file
                 # But there could be blueprint without optional fields
@@ -206,7 +221,7 @@ class BlueprintBuilder:
     def update_parser_fields(self) -> None:
         '''Updates ParserFields with dependent fields in all structures'''
         for bp, structures in self.structures.items():
-            for id, info in structures.items():
+            for structure_id, info in structures.items():
                 structure = info.structure_info.structure
                 updates = {}
                 parser_fields = [
@@ -224,7 +239,7 @@ class BlueprintBuilder:
                         pf.parse_value(*args)
                         updates[pf.name] = pf.value
                 #  This pf processing is the worst place of the module
-                self.set_updates(bp, id, updates)
+                self.set_updates(bp, structure_id, updates)
 
     def clear_structures(self):
         self.structures = {bp: {} for bp in self.blueprints}
