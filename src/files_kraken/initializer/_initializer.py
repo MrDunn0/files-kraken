@@ -20,8 +20,8 @@ class Workflow:
     db_path: str | pathlib.Path = None
     db: Database = None
     schemes: list[DataBlueprint] = field(default_factory=list)
-    collector_path: str | pathlib.Path = None,
-    exit_time: int = None,
+    collector_path: str | pathlib.Path = None
+    exit_time: int = None
     db_manager: DatabaseManager = None
     db_updater: BlueprintsDBUpdater = None
     bp_builder: BlueprintBuilder = None
