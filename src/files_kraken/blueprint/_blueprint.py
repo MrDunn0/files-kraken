@@ -3,7 +3,7 @@ from typing import ClassVar
 from copy import deepcopy
 
 # FilesKraken modules
-from fields import ParserField, FieldsTransformer
+from fields import FieldsTransformer
 # It's good idea to create dataclass with constants for blueprints to use it here
 
 
@@ -18,7 +18,11 @@ class DataBlueprint:
         '''
         self.has_parser_fields = False
         for field, value in self.__dict__.items():
-            if isinstance(value, ParserField):
+            # isintance(value, ParserField) doesn't work when running
+            # in real project. It's because of imports problem
+            # This possibly can be fixed with package sys.path modification
+            # and changes in module imports to package imports. Now Idk how to realize it
+            if value.__class__.__name__ == 'ParserField':
                 # Copy ParserField in each instance.
                 # I don't know another way to solve the problem, when all instances have
                 # the same id of this field. Create method also have deepcopy but it works only
@@ -74,4 +78,4 @@ class DataBlueprint:
         return cls.__name__
 
 
-    __all__ = ['DataBlueprint']
+__all__ = ['DataBlueprint']
