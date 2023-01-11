@@ -173,8 +173,6 @@ class MonitorManager:
         create_dirs(self.backups_dir)
         self.exit_time = exit_time
         self._exit_file = exit_file
-        if self.exit_time:
-            self._start_time = time.time()
         if exit_file:
             open(exit_file, 'w').close()
 
@@ -267,6 +265,9 @@ class MonitorManager:
             self.kraken.release(FileChangesInfo(changes))
 
     def start(self):
+        # I think start time should be counted from here
+        if self.exit_time:
+            self._start_time = time.time()
         while not self._time_to_exit():
             time.sleep(1)  # It helps not to load full core
             for monitor, info in self.monitors.items():

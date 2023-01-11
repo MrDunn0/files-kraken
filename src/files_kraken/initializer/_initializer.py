@@ -20,7 +20,8 @@ class Workflow:
     db_path: str | pathlib.Path = None
     db: Database = None
     schemes: list[DataBlueprint] = field(default_factory=list)
-    collector_path: str | pathlib.Path = None
+    collector_path: str | pathlib.Path = None,
+    exit_time: int = None,
     db_manager: DatabaseManager = None
     db_updater: BlueprintsDBUpdater = None
     bp_builder: BlueprintBuilder = None
@@ -69,6 +70,9 @@ class Workflow:
         # Register schemes in blueprint builder
         for scheme in self.schemes:
             self.bp_builder.register_blueprint(scheme)
+        # Set exit time if specified
+        if self.exit_time:
+            self.monitor_manager.exit_time = self.exit_time
 
     def run(self):
         create_dirs(self.wf_dir)
