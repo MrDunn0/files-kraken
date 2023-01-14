@@ -63,12 +63,7 @@ class MyScheme(DataBlueprint):
 	      'results_file': fr'{self.project}_results.txt'
 	  }
 	  super().__post_init__()  # Also required
-	  
-
-
-
-
-
+```
 
 As you can see, everything is, to put it mildly, a bit complicated. But let's try to figure this out.
 
