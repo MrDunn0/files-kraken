@@ -35,7 +35,7 @@ The idea is same as Pydantic or Django models: You create some schemes with name
 
 Let's look at an example from here.
 
-```
+```python
 import pathlib
 from dataclasses import dataclass
 from files_kraken.blueprint import DataBlueprint
@@ -64,7 +64,11 @@ class MyScheme(DataBlueprint):
 	  }
 	  super().__post_init__()  # Also required
 	  
-```
+
+
+
+
+
 
 As you can see, everything is, to put it mildly, a bit complicated. But let's try to figure this out.
 
@@ -73,7 +77,7 @@ Here we have the scheme with 3 fields: `project`, `results_file` and `metric`.  
 [Regular expression formats](#regular-expression-formats)
 [Supported field types](#supported-scheme-field-types)
 
-```
+```python
 from files_kraken.fields import DataParser
 
 class MyMetricParser(DataParser):
@@ -89,7 +93,7 @@ In `required_fields`  you specify  required fields and provide regular expressio
 
 This is the most simplest workflow configuration option:
 
-```
+```python
 from files_kraken.initializer import Workflow
 
 wf = Workflow(
@@ -113,7 +117,7 @@ There are three ways you can specify regular expressions for a field:
 
 Let's consider the following scheme:
 
-```
+```python
 from files_kraken.blueprint import DataBlueprint
 
 @dataclass
@@ -164,7 +168,7 @@ As you can see, all types except  `ParserField` will be removed from the DB if t
 
 In the [Basic Usage](#basic-usage) section we didn't create the collector object, but it may be needed for more specific tasks. This option might be useful if you don't want to match every file against your schemes.The collector class has several configuration options that can help with that:
 
-```
+```python
 from files_kraken.collector import SingleRootCollector
 
 SingleRootCollector(
@@ -174,7 +178,7 @@ SingleRootCollector(
 	 keep_empty_dirs = True,
 	 max_depth = None
 )
-```
+```python
 
 `root`  is path to your data directory, it's the only required argument.
 `matcher` - matcher object. Actually it could be any object with `match()`, method, which returns `bool`. You can use the package's built-in class `BoolOutputMultimatcher`. 
@@ -184,7 +188,7 @@ SingleRootCollector(
 
 Let's say you have some directory with `run_[0-9]+` directories with raw data for each run. Detailed workflow explanation can found here. But you want to collect only runs starting from 10th. Then your collector will need a matcher object. It can be created like this:
 
-```
+```python
 from files_kraken.retools import BoolOutputMultimatcher
 from files_kraken.collector import SingleRootCollector
 
@@ -210,7 +214,7 @@ If you create multiple collectors or you want custom collector, you will have to
 
 But first we need to create an object that directly watches for changes in the directory.  This is an object of class `ChangesWatcher`:
 
-```
+```python
 from files_kraken.monitoring import ChangesWatcher
 
 raw_data_cw = ChangesWatcher(
@@ -222,7 +226,7 @@ raw_data_cw = ChangesWatcher(
 
 Then we need to register our watcher in monitor manager
 
-```
+```python
 from files_kraken.monitoring import MonitorManager
 
 monitor_manager = MonitorManager()
@@ -236,7 +240,7 @@ You can specify `MonitorManager.backups_dir`, where the state of watchers will b
 
 To add your monitor manager to workflow just do this:
 
-```
+```python
 from files_kraken.initializer import Workflow
 
 wf = Workflow(
@@ -253,7 +257,7 @@ wf = Workflow(
 
 At the moment FilesKraken supports the only one database - [TinyDB](https://github.com/msiemens/tinydb).  If you want to embed your DB in workflow, you need to create respective database class. To do this, you need to inherit from `files_kraken.database.Database` object:
 
-```
+```python
 from files_kraken.database import Database, DatabaseManager
 
 class MyCustomDatabase(Database):
@@ -283,7 +287,7 @@ In case you use TinyDB and your parser fields have some non-default types, you c
 
 Collected data in JSON format is stored by default in a `{workflow_name}_db.json` file in the workflow directory. To access it you can use TinyDB, or any JSON parser. Also you can use workflow object directly to access database manager API.
 
-```
+```python
 wf.db_manager.get_blueprint(
    name=your_scheme_name,
    id=object_id
