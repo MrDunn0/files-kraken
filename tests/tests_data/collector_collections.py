@@ -1,7 +1,6 @@
 import pathlib
 COLLECTOR_ALL_FILES = {
     str(pathlib.Path('tests/tests_data/collector_path').absolute()): {
-        'run': {},
         'run1': {
                 'copy_of_run_1.txt': None,
                 'bams': {'sample_1.bai': None, 'sample_1.bam': None},
@@ -27,7 +26,6 @@ COLLECTOR_ALL_FILES = {
 
 DEFAULT_MATCH_COLLECTION = {
     str(pathlib.Path('tests/tests_data/collector_path').absolute()): {
-        'run': {},
         'run1': {
                 'bams': {'sample_1.bam': None},
                 'input': {'sample_1.fastq.gz': None},
@@ -95,7 +93,6 @@ MATCH_DIRS_NO_EMPTY_COLLECTION = {
 
 FS_DEFAULT_MATCH_COLLECTION = {
     '/fs/tests_data/collector_path': {
-        'run': {},
         'run1': {
                 'bams': {'sample_1.bam': None},
                 'input': {'sample_1.fastq.gz': None},
