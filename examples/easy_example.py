@@ -37,7 +37,6 @@ class MyMetricParser(DataParser):
     def parse(file):
         with open(file) as f:
             value = float(f.read().strip())
-            print(f'Parser value: {value}. File: {file}')
             return value
 
 # Each scheme must be a dataclass inherited from DataBlueprint
@@ -69,7 +68,7 @@ class MyScheme(DataBlueprint):
 
 
 wf = Workflow(
-    'kraken_workflow',  # Workflow name
+    'easy_workflow',  # Workflow name
     collector_path='./easy_example_workflow',  # Path to the target data
     schemes=[MyScheme],  # Your scheme
     exit_time=3,  # Time to exit in seconds
@@ -77,5 +76,5 @@ wf = Workflow(
 create_example_data()
 wf.run()
 
-# Workflow data is stored in {your_current_dir}/workflow_data/kraken_workflow
+# Workflow data is stored in {your_current_dir}/workflow_data/easy_workflow
 # DB with data schemes file basename is 'kraken_workflow_db.json'
