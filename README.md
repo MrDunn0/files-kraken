@@ -152,7 +152,8 @@ All types except `ParserField` are used to work with file names.  `str` type is 
 The table below shows the behavior of different field types. Unfortunately, the user can't change any of this in the current version of the package.
 
 |Action/Behavior|str|pathlib.Path|List[str]|List[pathlib.Path]|ParserField|
-|-
+| --- | --- | --- | --- | --- | --- |
+
 |File deleted|Set to None||Remove from list||No action|
 |DB value|str|Full path str| List of str| List of full path str|Any supported by db|
 
