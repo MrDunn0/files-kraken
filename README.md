@@ -153,7 +153,7 @@ The table below shows the behavior of different field types. Unfortunately, the 
 
 |Action/Behavior|str|pathlib.Path|List[str]|List[pathlib.Path]|ParserField|
 | --- | --- | --- | --- | --- | --- |
-|File deleted|Set to None||Remove from list||No action|
+|File deleted|Set to None|Set to None|Remove from list|Remove from list|No action|
 |DB value|str|Full path str| List of str| List of full path str|Any supported by db|
 
 As you can see, all types except  `ParserField` will be removed from the DB if their respective files are deleted.
