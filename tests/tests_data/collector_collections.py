@@ -20,7 +20,7 @@ COLLECTOR_ALL_FILES = {
             'input': {'sample_2.fastq.gz': None, 'sample_3.fastq.gz': None},
             'results': {'sample_2.metrics.txt': None, 'sample_2.results.txt': None, 'sample_3.metrics.txt': None, 'sample_3.results.txt': None},
             },
-        'run_3': {'bams': {}, 'input': {}, 'results': {}, 'empty_run.txt': None}
+        'run_3': {'empty_run.txt': None}
     }
 }
 
@@ -45,7 +45,7 @@ DEFAULT_MATCH_COLLECTION = {
             'input': {'sample_2.fastq.gz': None, 'sample_3.fastq.gz': None},
             'results': {'sample_2.metrics.txt': None, 'sample_2.results.txt': None, 'sample_3.metrics.txt': None, 'sample_3.results.txt': None},
         },
-        'run_3': {'bams': {}, 'input': {}, 'results': {}}
+        'run_3': {}
         }
 }
 
@@ -61,7 +61,7 @@ MATCH_DIRS_COLLECTION = {
             'input': {'sample_2.fastq.gz': None, 'sample_3.fastq.gz': None},
             'results': {'sample_2.metrics.txt': None, 'sample_2.results.txt': None, 'sample_3.metrics.txt': None, 'sample_3.results.txt': None},
         },
-        'run_3': {'bams': {}, 'input': {}, 'results': {}}
+        'run_3': {}
         }
 }
 
@@ -113,7 +113,7 @@ FS_DEFAULT_MATCH_COLLECTION = {
             'input': {'sample_2.fastq.gz': None, 'sample_3.fastq.gz': None},
             'results': {'sample_2.metrics.txt': None, 'sample_2.results.txt': None, 'sample_3.metrics.txt': None, 'sample_3.results.txt': None},
         },
-        'run_3': {'bams': {}, 'input': {}, 'results': {}}
+        'run_3': {}
         }
 }
 
