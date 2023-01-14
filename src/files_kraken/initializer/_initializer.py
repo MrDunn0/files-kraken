@@ -30,6 +30,8 @@ class Workflow:
     def __post_init__(self):
         self.wf_dir = pathlib.Path(self.wf_dir) / 'workflow_data' / self.name
 
+        create_dirs(self.wf_dir)
+
         # Maybe it's a bad idea to simplify initialization
         # by the cost of readability and class __init__ overloading.
 
@@ -45,7 +47,8 @@ class Workflow:
                 monitor_backup_file = str(monitor) + '.json'
                 self.monitor_manager.add_monitor(monitor, backup_file=monitor_backup_file)
 
-        if not self.monitor_manager.backups_dir:
+        if not self.monitor_manager.backups_dir or \
+                self.monitor_manager.backups_dir.name == 'backups':
             self.monitor_manager.backups_dir = self.wf_dir / 'monitor_backups'
 
         if not self.db:
@@ -75,7 +78,6 @@ class Workflow:
             self.monitor_manager.exit_time = self.exit_time
 
     def run(self):
-        create_dirs(self.wf_dir)
         # Check that all key components are set
         for monitor in self.monitor_manager.monitors:
             if not monitor.collector:

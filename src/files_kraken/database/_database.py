@@ -48,9 +48,8 @@ class JsonDatabse(Database, TinyDB):
 
 
 class DatabaseManager:
-    def __init__(self, db: Database, kraken=None):
+    def __init__(self, db: Database):
         self.db = db
-        # self.kraken = kraken
 
     def add_blueprint(self, entry):
         self.db.add_blueprint(entry)
@@ -68,12 +67,6 @@ class DatabaseManager:
 
     def get_all(self):
         return self.db.all()
-
-    def listen(self, info):
-        pass
-        # BlueprintCreatedInfo
-        # BlueprintChangedInfo
-        # DeleteBlueprintInfo
 
 
 __all__ = [

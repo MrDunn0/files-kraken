@@ -170,7 +170,6 @@ class MonitorManager:
         self.backup_manager = BackupManager()
         self.backups_dir = pathlib.Path(backups_dir) if backups_dir \
             else pathlib.Path('./backups')
-        create_dirs(self.backups_dir)
         self.exit_time = exit_time
         self._exit_file = exit_file
         if exit_file:
@@ -182,12 +181,16 @@ class MonitorManager:
                     timeout: int = 10,
                     reindex_timeout: int = None) -> None:
         self.monitors[monitor] = self.MonitorInfo(timeout, reindex_timeout, backup_file)
-        if backup_file:
-            # prev_state type of monitor should be difined here
-            backup_file = self.backups_dir / backup_file
-            self.backup_manager.add(monitor, backup_file=backup_file,
-                                    collection=type(monitor.prev_state))
-            monitor.set_state(self.backup_manager.load(monitor))  # Loading backups to monitor
+
+    def _backup_monotors(self):
+        create_dirs(self.backups_dir)
+        for monitor, info in self.monitors.items():
+            if info.backup_file:
+                # prev_state type of monitor should be difined here
+                backup_file = self.backups_dir / info.backup_file
+                self.backup_manager.add(monitor, backup_file=backup_file,
+                                        collection=type(monitor.prev_state))
+                monitor.set_state(self.backup_manager.load(monitor))  # Loading backups to monitor
 
     def add_coworker(self, monitor: ChangesWatcher, coworker: ChangesWatcher):
         self.monitors[monitor].coworkers.append(coworker)
@@ -265,6 +268,11 @@ class MonitorManager:
             self.kraken.release(FileChangesInfo(changes))
 
     def start(self):
+        # It turned out that it is better to add monitors to backup manager
+        # here, because it's now possible to change backups dir when object is
+        # created, but not run yet
+        self._backup_monotors()
+
         # I think start time should be counted from here
         if self.exit_time:
             self._start_time = time.time()
