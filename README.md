@@ -4,6 +4,8 @@ FilesKraken is a simple app that allows you to  monitor file system changes and 
 
 [Python/OS](#python-version-and-os)
 
+[Installation](#installation)
+
 [Basic Usage](#basic-usage)
 
 [Advanced Usage](#advanced-usage)
@@ -26,6 +28,23 @@ It's important to note that this is primarily a training project, so don't expec
 
 FilesKraken requires Python 3.10+
 Tested on Mac 10.14.6 and  Ubuntu 18.04.3
+
+# Installation
+
+FilesKraken is not publish on PyPI, but you can install it by clonning from here and running pip:
+
+```bash
+git clone https://github.com/MrDunn0/files-kraken.git
+cd files-kraken
+python3 -m pip install ./
+```
+
+or by downloading the .whl file and running pip:
+
+```bash
+wget https://github.com/MrDunn0/files-kraken/releases/download/v1.0/files_kraken-1.0-py3-none-any.whl
+python3 -m pip install files_kraken-1.0-py3-none-any.whl
+```
 
 # Basic Usage
 
