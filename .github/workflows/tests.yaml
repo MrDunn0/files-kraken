@@ -1,7 +1,11 @@
 name: tests
 
-on: [push]
-
+on: 
+  push:
+    branches: 
+      - main
+      - develop
+      - 'releases/**'
 jobs:
   build:
 
