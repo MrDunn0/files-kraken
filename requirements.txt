@@ -1,0 +1,5 @@
+better-abc==0.0.3
+pyfakefs==5.0.0
+pytest==7.2.0
+tinydb==4.7.0
+tinydb-serialization==2.1.0
