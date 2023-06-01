@@ -195,9 +195,13 @@ SingleRootCollector(
 ```
 
 `root`  is path to your data directory, it's the only required argument.
+
 `matcher` - matcher object. Actually it could be any object with `match()`, method, which returns `bool`. You can use the package's built-in class `BoolOutputMultimatcher`. 
+
 `match_dirs` - defines whether to use matcher on directories.
+
 `keep_empty_dirs` - understandable by name, but let me clarify that a directory could become empty during the matching.
+
 `max_depth` - depth of files gathering. Zero depth is the level of your `root` directory.
 
 Let's say you have some directory with `run_[0-9]+` directories with raw data for each run. Detailed workflow explanation can found here. But you want to collect only runs starting from 10th. Then your collector will need a matcher object. It can be created like this:
