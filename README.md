@@ -204,7 +204,7 @@ SingleRootCollector(
 
 `max_depth` - depth of files gathering. Zero depth is the level of your `root` directory.
 
-Let's say you have some directory with `run_[0-9]+` directories with raw data for each run. Detailed workflow explanation can found here. But you want to collect only runs starting from 10th. Then your collector will need a matcher object. It can be created like this:
+Let's say you have some directory with `run_[0-9]+` directories with raw data for each run. Detailed workflow explanation can be found [here](https://github.com/MrDunn0/files-kraken/blob/main/examples/advanced_example.py). But you want to collect only runs starting from 10th. Then your collector will need a matcher object. It can be created like this:
 
 
 ```python
