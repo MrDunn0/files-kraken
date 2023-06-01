@@ -52,7 +52,7 @@ python3 -m pip install files_kraken-1.0-py3-none-any.whl
 
 The idea is same as Pydantic or Django models: You create some schemes with named fields of fixed type. Then these schemes will be filled and sent to the database.
 
-Let's look at an example from here.
+Let's look at an example from [here](https://github.com/MrDunn0/files-kraken/blob/main/examples/easy_example.py).
 
 ```python
 import pathlib
